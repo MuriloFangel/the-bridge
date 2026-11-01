@@ -1681,7 +1681,7 @@ function bridge_checkDisconnectState(inst: text, team: integer, dcName: text):
 
     if {_totalCount} > 0:
         if ({_onlineCount} / {_totalCount}) >= 0.5:
-            set {_msg} to "%{bridge::config::prefix}% &e%{_dcName}% saiu. O time mantém %{_onlineCount}%/%{_totalCount}% presentes (pelo menos 50%); esta saída não abre novo congelamento."
+            set {_msg} to "%{bridge::config::prefix}% &e%{_dcName}% saiu. O time mantém %{_onlineCount}%/%{_totalCount}% presentes (pelo menos 50 por cento); esta saída não abre novo congelamento."
             loop {bridge::instance::%{_inst}%::team::1::players::*}:
                 if bridge_isPresent(loop-value, {_inst}) is true:
                     send {_msg} to loop-value
