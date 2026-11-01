@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
-# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
+# Bridge-Delivery-ID: TB-20261101T061211Z-F615A3D1
+# Bridge-Base-Commit: 57f3a58f67ea82ea5e5c4db5a01856383e847627
 # ================================================================
 # THE BRIDGE - CORE / ETAPA A: PRESENÇA, RETORNAR E TRAVA DE PAUSA
 # CarbonSpigot 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3 / skRayFall
@@ -277,88 +277,9 @@ function bridge_removeCage(inst: text):
     delete {-bridge::cage_snapshot::%{_inst}%::*}
 
 # ---------------------------------------------------------
-# ARMADURA E KIT UNBREAKABLE
+# KIT E ARMADURA: funções globais em Bridge-Loadout.sk.
+# Nomes, chamadas e comportamento mantidos nesta extração.
 # ---------------------------------------------------------
-function bridge_coreColor(d: integer) :: object:
-    if {_d} is 11:
-        return Color.fromRGB(30, 144, 255)
-    if {_d} is 14:
-        return Color.fromRGB(220, 20, 60)
-    if {_d} is 5:
-        return Color.fromRGB(50, 205, 50)
-    if {_d} is 4:
-        return Color.fromRGB(255, 215, 0)
-    return Color.fromRGB(220, 20, 60)
-
-function bridge_giveLeatherArmor(p: player, colorData: integer):
-    set {_color} to bridge_coreColor({_colorData})
-    set {_inv} to {_p}.getInventory()
-    {_inv}.setHelmet(null)
-
-    set {_chest} to new ItemStack(Material.LEATHER_CHESTPLATE, 1)
-    set {_metaC} to {_chest}.getItemMeta()
-    {_metaC}.setColor({_color})
-    {_metaC}.spigot().setUnbreakable(true)
-    {_chest}.setItemMeta({_metaC})
-    {_inv}.setChestplate({_chest})
-
-    set {_legs} to new ItemStack(Material.LEATHER_LEGGINGS, 1)
-    set {_metaL} to {_legs}.getItemMeta()
-    {_metaL}.setColor({_color})
-    {_metaL}.spigot().setUnbreakable(true)
-    {_legs}.setItemMeta({_metaL})
-    {_inv}.setLeggings({_legs})
-
-    set {_boots} to new ItemStack(Material.LEATHER_BOOTS, 1)
-    set {_metaB} to {_boots}.getItemMeta()
-    {_metaB}.setColor({_color})
-    {_metaB}.spigot().setUnbreakable(true)
-    {_boots}.setItemMeta({_metaB})
-    {_inv}.setBoots({_boots})
-
-function bridge_giveKit(p: player, teamColorData: integer):
-    clear {_p}'s inventory
-    set {_p}'s gamemode to survival
-    {_p}.setHealth(20.0)
-    {_p}.setFoodLevel(20)
-    {_p}.setFireTicks(0)
-    {_p}.setFallDistance(0.0)
-
-    remove regeneration from {_p}
-    remove absorption from {_p}
-    delete {bridge::player::%{_p}'s uuid%::gapple_eaten}
-    delete {-bridge::player::%{_p}'s uuid%::last_attacker_name}
-    delete {-bridge::player::%{_p}'s uuid%::last_attacker_time}
-
-    set {_sword} to new ItemStack(Material.IRON_SWORD, 1)
-    set {_mS} to {_sword}.getItemMeta()
-    {_mS}.spigot().setUnbreakable(true)
-    {_sword}.setItemMeta({_mS})
-    set slot 0 of {_p}'s inventory to {_sword}
-
-    set {_bow} to new ItemStack(Material.BOW, 1)
-    set {_mB} to {_bow}.getItemMeta()
-    {_mB}.spigot().setUnbreakable(true)
-    {_bow}.setItemMeta({_mB})
-    set slot 1 of {_p}'s inventory to {_bow}
-
-    set {_pick} to new ItemStack(Material.DIAMOND_PICKAXE, 1)
-    {_pick}.addUnsafeEnchantment(Enchantment.DIG_SPEED, 2)
-    set {_mP} to {_pick}.getItemMeta()
-    {_mP}.spigot().setUnbreakable(true)
-    {_pick}.setItemMeta({_mP})
-    set slot 2 of {_p}'s inventory to {_pick}
-
-    set {_clay} to new ItemStack(Material.STAINED_CLAY, 64)
-    {_clay}.setDurability({_teamColorData})
-    set slot 3 of {_p}'s inventory to {_clay}
-    set slot 4 of {_p}'s inventory to {_clay}
-
-    set slot 5 of {_p}'s inventory to 8 golden apples
-    set slot 8 of {_p}'s inventory to 1 arrow
-
-    bridge_giveLeatherArmor({_p}, {_teamColorData})
-    {_p}.updateInventory()
 
 function bridge_fixVisibility(inst: text):
     wait 2 ticks
