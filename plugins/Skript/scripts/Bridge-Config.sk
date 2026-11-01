@@ -1,19 +1,27 @@
+# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 # ==================================================================
 # THE BRIDGE - CONFIGURAÇÕES E MENSAGENS
 # ==================================================================
 
 on load:
-    # Prefixos
+    # Prefixos compartilhados. Mensagens dos módulos usam estas cores; a sidebar não é redesenhada.
     set {bridge::config::prefix} to "&9&lBRIDGE &8»&7"
     set {bridge::config::erro} to "&c&lERRO &8»&7"
     set {bridge::config::sucesso} to "&a&lSUCESSO &8»&7"
 
-    # Variáveis Padrões das Arenas
+    # Padrões copiados ao CADASTRAR uma arena. Não alteram regras de arenas já salvas.
+    # Para editar arena existente, use /bridge menu ou /bridge set <arena> <propriedade> <valor>.
+    # /bridge set ... tempo recebe segundos; o editor visual converte minutos para segundos.
     set {bridge::config::default_gols} to 5
-    set {bridge::config::default_y_void} to 83
-    set {bridge::config::default_y_max} to 100
+    set {bridge::config::default_y_void} to 83 # abaixo deste Y ocorre o void
+    set {bridge::config::default_y_max} to 100 # Y máximo padrão de construção
     set {bridge::config::default_tempo} to 900 # 15 minutos em segundos
-    set {bridge::config::default_limite_ponte} to 20
-    set {bridge::config::default_limite_lateral} to 20
+    set {bridge::config::default_limite_ponte} to 20 # distância do centro, em blocos, para cada lado
+    set {bridge::config::default_limite_lateral} to 20 # distância do centro, em blocos, para cada lado
 
-    send "%{bridge::config::prefix}% &aMódulo de Configuração carregado!" to console
+    # Complementa só o primeiro argumento; não sobrescreve lista customizada existente.
+    if {bridge::tab::custom::bridge::1::*} is not set:
+        set {bridge::tab::custom::bridge::1::*} to "ajuda", "help", "setuparena", "setlimitpos", "setcage", "setlimit", "set", "tp", "menu", "list" and "maps"
+
+    send "%{bridge::config::prefix}% &aConfigurações carregadas. &7Padrões válidos para novos cadastros de arena." to console

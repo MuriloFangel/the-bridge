@@ -1,3 +1,5 @@
+# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 # ================================================================
 # THE BRIDGE - MENU GUI DE SELEÇÃO DE ARENAS (ETAPA 2.3 - FIX)
 # ================================================================
@@ -33,7 +35,7 @@ function bridge_openArenaMenu(p: player):
         set {_meta} to {_item}.getItemMeta()
         {_meta}.setDisplayName(colored "&a&lArena %{_arena}%")
         
-        set {_lore} to Arrays.asList(colored "&7Clique para entrar na fila desta arena.", colored "", colored "&fInstâncias Livres: &a%{_freeCount}%", colored "&fJogadores na Fila: &e%{_queueCount}%", colored "", colored "&e▶ Clique para Jogar!")
+        set {_lore} to Arrays.asList(colored "&7Clique para procurar uma partida nesta arena.", colored "", colored "&fInstâncias Livres: &a%{_freeCount}%", colored "&fNa fila: &e%{_queueCount}%", colored "", colored "&e▶ Entrar na fila")
         
         {_meta}.setLore({_lore})
         {_item}.setItemMeta({_meta})

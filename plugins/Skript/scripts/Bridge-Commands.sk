@@ -1,30 +1,27 @@
-# Bridge-Delivery-ID: TB-20261101T052439Z-337E88BC
-# Bridge-Base-Commit: e1a735048bcbbadd73b26fc3b198a04df6c89c8f
+# Bridge-Delivery-ID: TB-20261101T054937Z-DF233813
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 # ================================================================
 # THE BRIDGE - AUTOCOMPLETE ISOLADO / skript-reflect 2.2.3
-# Descobre comandos dos scripts ativos Bridge-*.sk; não modifica executores.
-# Nomes/aliases continuam no commandMap normal do servidor.
+# Acesso ao commandMap pela sintaxe de CAMPOS do addon.
+# Não chama Class.getDeclaredFields/getMethods via MethodHandles.
 # ================================================================
 import:
-    org.bukkit.Bukkit
-    org.bukkit.command.TabCompleter
-    ch.njol.skript.command.Commands
-    java.util.ArrayList
-    java.lang.Class
-    java.lang.System
-    java.lang.reflect.Array
+    org.bukkit.Bukkit as BridgeBukkit
+    org.bukkit.plugin.SimplePluginManager as BridgePluginManager
+    org.bukkit.command.TabCompleter as BridgeTabCompleter
+    java.util.ArrayList as BridgeArrayList
+    java.lang.System as BridgeSystem
+    java.lang.reflect.Array as BridgeArray
 
-function bridge_tabMethod0(c: object, methodName: text) :: boolean:
-    set {_methods} to {_c}.getMethods()
-    set {_count} to Array.getLength({_methods})
-    loop {_count} times:
-        set {_i} to loop-value - 1
-        set {_method} to Array.get({_methods}, {_i})
-        if {_method}.getName() is {_methodName}:
-            set {_parameters} to {_method}.getParameterTypes()
-            if Array.getLength({_parameters}) is 0:
-                return true
-    return false
+function bridge_tabReadCommandMap() :: object:
+    set {_manager} to BridgeBukkit.getPluginManager()
+    if {_manager} is not set:
+        stop
+    # O reflect resolve o campo internamente; não enumerar java.lang.Class no script.
+    set {_map} to try {_manager}.[BridgePluginManager]commandMap
+    if {_map} is set:
+        return {_map}
+    stop
 
 function bridge_tabProvide(list: object, token: text, sender: object):
     if {_token} is "@arenas":
@@ -48,31 +45,29 @@ function bridge_tabProvide(list: object, token: text, sender: object):
             if {_visible} is true:
                 {_list}.add(name of loop-player)
     else:
-        # Tokens desconhecidos não viram sugestão acidental.
         if {_token} does not start with "@":
             {_list}.add({_token})
 
 function bridge_tabComplete(proxy: object, sender: object, cmd: object, label: text, args: object) :: object:
-    set {_result} to new ArrayList()
-    # Não mover consultas de Bukkit para thread assíncrona.
-    if Bukkit.isPrimaryThread() is false:
+    set {_result} to new BridgeArrayList()
+    if BridgeBukkit.isPrimaryThread() is false:
         return {_result}
     if {_cmd}.testPermissionSilent({_sender}) is false:
         return {_result}
     if {_args} is not set:
         return {_result}
-    set {_n} to Array.getLength({_args})
+    set {_n} to BridgeArray.getLength({_args})
     if {_n} <= 0:
         return {_result}
     set {_last} to {_n} - 1
-    set {_prefix} to Array.get({_args}, {_last})
+    set {_prefix} to BridgeArray.get({_args}, {_last})
     set {_prefix} to {_prefix}.toLowerCase()
     set {_root} to {_cmd}.getName()
     set {_root} to {_root}.toLowerCase()
-    set {_a1} to Array.get({_args}, 0)
+    set {_a1} to BridgeArray.get({_args}, 0)
     set {_a1} to {_a1}.toLowerCase()
     set {_custom} to false
-    set {_tokens} to new ArrayList()
+    set {_tokens} to new BridgeArrayList()
     if {_root} is "bridge":
         set {_custom} to true
         if {_n} is 1:
@@ -91,8 +86,8 @@ function bridge_tabComplete(proxy: object, sender: object, cmd: object, label: t
                 set {_choices::*} to "centro", "t1" and "t2"
         else if {_n} is 4:
             if {_a1} is "set" or "setlimit":
-                set {_arena} to Array.get({_args}, 1)
-                set {_property} to Array.get({_args}, 2)
+                set {_arena} to BridgeArray.get({_args}, 1)
+                set {_property} to BridgeArray.get({_args}, 2)
                 if {_a1} is "setlimit":
                     if {_property} is "ponte" or "longitudinal":
                         set {_property} to "limite-ponte"
@@ -121,18 +116,15 @@ function bridge_tabComplete(proxy: object, sender: object, cmd: object, label: t
             if {_a1} is "setfooter":
                 set {_custom} to true
                 set {_choices::1} to "@footer"
-    # Extensão central OPCIONAL: comando principal e posição 1-based do argumento.
-    # Ex.: {bridge::tab::custom::novocomando::1::*} = "opcao", "@arenas".
-    # Não é preciso recadastrar aliases nem tocar nos outros comandos.
+    # Extensão central opcional: comando principal e argumento em posição 1-based.
     if {bridge::tab::custom::%{_root}%::%{_n}%::*} is set:
         set {_custom} to true
         set {_choices::*} to {bridge::tab::custom::%{_root}%::%{_n}%::*}
     if {_custom} is not true:
-        set {_id} to System.identityHashCode({_cmd})
+        set {_id} to BridgeSystem.identityHashCode({_cmd})
         set {_previous} to {-bridge::tab::previous::%{_id}%}
         if {_previous} is set:
             return {_previous}.onTabComplete({_sender}, {_cmd}, {_label}, {_args})
-        # Mantém o completador nativo para tipos conhecidos e comandos novos.
         set {_executor} to {_cmd}.getExecutor()
         if {_executor} is set:
             if {_executor}.getClass().getName() is "ch.njol.skript.command.ScriptCommand":
@@ -154,8 +146,8 @@ function bridge_tabRestore(cmd: object, id: text):
         set {_current} to {_cmd}.getTabCompleter()
         set {_currentID} to 0
         if {_current} is set:
-            set {_currentID} to System.identityHashCode({_current})
-        set {_ours} to System.identityHashCode({-bridge::tab::proxy})
+            set {_currentID} to BridgeSystem.identityHashCode({_current})
+        set {_ours} to BridgeSystem.identityHashCode({-bridge::tab::proxy})
         if {_currentID} is {_ours}:
             set {_old} to {-bridge::tab::previous::%{_id}%}
             if {_old} is set:
@@ -170,12 +162,16 @@ function bridge_tabScan(report: boolean):
         stop
     if {-bridge::tab::proxy} is not set:
         stop
-    set {_map} to Commands.getCommandMap()
+    set {_map} to {-bridge::tab::map}
     if {_map} is not set:
-        send "[Bridge] TAB: commandMap do Skript indisponível. Módulo desativado sem alterar executores." to console
+        send "[Bridge] TAB: commandMap Bukkit indisponível; integração desativada." to console
         set {-bridge::tab::disabled} to true
         stop
     set {_commands} to {_map}.getCommands()
+    if {_commands} is not set:
+        send "[Bridge] TAB: não foi possível enumerar comandos. Confira os erros anteriores." to console
+        set {-bridge::tab::disabled} to true
+        stop
     set {_iterator} to {_commands}.iterator()
     set {_found} to 0
     set {_installed} to 0
@@ -186,20 +182,17 @@ function bridge_tabScan(report: boolean):
                 set {_executor} to {_cmd}.getExecutor()
                 if {_executor} is set:
                     if {_executor}.getClass().getName() is "ch.njol.skript.command.ScriptCommand":
-                        if {-bridge::tab::scriptApiChecked} is not true:
-                            set {_class} to {_executor}.getClass()
-                            if bridge_tabMethod0({_class}, "getScript") is not true:
-                                send "[Bridge] TAB: este fork do Skript não expõe ScriptCommand.getScript(). Integração desativada; outros módulos permanecem independentes." to console
-                                set {-bridge::tab::disabled} to true
-                                stop
-                            set {-bridge::tab::scriptApiChecked} to true
-                        set {_script} to {_executor}.getScript()
-                        if {_script} is set:
+                        set {_script} to try {_executor}.getScript()
+                        if {_script} is not set:
+                            if {-bridge::tab::ownerWarned} is not true:
+                                send "[Bridge] TAB: não foi possível obter o arquivo proprietário de um ScriptCommand. Comando ignorado; confira compatibilidade do getter getScript()." to console
+                                set {-bridge::tab::ownerWarned} to true
+                        else:
                             set {_name} to {_script}.getName()
                             set {_name} to {_name}.toLowerCase()
                             if {_name}.startsWith("bridge-") is true:
                                 if {_name}.endsWith(".sk") is true:
-                                    set {_idNumber} to System.identityHashCode({_cmd})
+                                    set {_idNumber} to BridgeSystem.identityHashCode({_cmd})
                                     set {_id} to "%{_idNumber}%"
                                     if {_live::%{_id}%} is not true:
                                         set {_live::%{_id}%} to true
@@ -210,7 +203,6 @@ function bridge_tabScan(report: boolean):
                                         set {-bridge::tab::commands::%{_id}%} to {_cmd}
                                         {_cmd}.setTabCompleter({-bridge::tab::proxy})
                                         add 1 to {_installed}
-    # Descarregamentos/reloads não acumulam referências a comandos antigos.
     loop {-bridge::tab::commands::*}:
         set {_id} to loop-index
         if {_live::%{_id}%} is not true:
@@ -218,22 +210,22 @@ function bridge_tabScan(report: boolean):
     loop {_stale::*}:
         bridge_tabRestore(loop-value, loop-index)
     if {_report} is true:
-        send "[Bridge] TAB: %{_found}% comando(s) principal(is) do projeto encontrado(s); %{_installed}% integração(ões) aplicada(s). Teste TAB ingame; reload sozinho não valida a execução." to console
+        send "[Bridge] TAB: %{_found}% comando(s) principal(is) encontrado(s); %{_installed}% integração(ões) aplicada(s). Teste TAB ingame." to console
 
 on load:
     delete {-bridge::tab::*}
-    set {_class} to Class.forName("ch.njol.skript.command.Commands")
-    if bridge_tabMethod0({_class}, "getCommandMap") is not true:
-        send "[Bridge] TAB: Commands.getCommandMap() não existe neste fork. Nenhum comando foi alterado." to console
+    set {_map} to bridge_tabReadCommandMap()
+    if {_map} is not set:
+        send "[Bridge] TAB: acesso ao campo commandMap do PluginManager indisponível. Nenhum executor foi alterado." to console
         set {-bridge::tab::disabled} to true
         stop
+    set {-bridge::tab::map} to {_map}
     set {_callbacks::ontabcomplete} to function reference "bridge_tabComplete"
-    set {-bridge::tab::proxy} to new proxy instance of TabCompleter using {_callbacks::*}
+    set {-bridge::tab::proxy} to new proxy instance of BridgeTabCompleter using {_callbacks::*}
     wait 2 ticks
     bridge_tabScan(true)
 
 every 5 seconds:
-    # Descobre comandos novos ou recarregados e reaproveita os aliases do mesmo objeto.
     bridge_tabScan(false)
 
 on unload:

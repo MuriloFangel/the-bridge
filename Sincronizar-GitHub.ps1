@@ -1,6 +1,6 @@
-﻿#requires -Version 7.2
-# Bridge-Delivery-ID: TB-20261101T042032Z-817D9FCD
-# Bridge-Base-Commit: c8c885abe4700d57c6dbd846699eb59b6f078840
+#requires -Version 7.2
+# Bridge-Delivery-ID: TB-20261101T060313Z-3982FC66
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 [CmdletBinding()]
 param(
     [string]$ProjectPath = 'F:\srv\vibecoding',
@@ -90,6 +90,12 @@ function Assert-RemoteSafe {
     }
 }
 function Stage-And-Check {
+    # BEGIN BRIDGE README MIRROR V1
+    $mirror=Join-Path $Root 'tools/Bridge-PromptReadme.ps1'
+    if(-not(Test-Path -LiteralPath $mirror -PathType Leaf)){throw 'STOP: helper do prompt/README ausente.'}
+    $mirrorRun=Invoke-Program -Exe (Join-Path $PSHOME 'pwsh.exe') -Arguments @('-NoProfile','-ExecutionPolicy','Bypass','-File',$mirror,'-ProjectPath',$Root)
+    if(-not [string]::IsNullOrWhiteSpace($mirrorRun.Text)){Say $mirrorRun.Text}
+    # END BRIDGE README MIRROR V1
     $null = G -Arguments @('add','--all','--','.')
     $staged = (G -Arguments @('ls-files','--stage')).Text
     if ($staged -match '(?m)^160000 ') { throw 'STOP: repositorio Git interno/submodulo encontrado. Confira a estrutura antes de enviar.' }

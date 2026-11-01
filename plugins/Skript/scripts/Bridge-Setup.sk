@@ -1,3 +1,5 @@
+# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -81,7 +83,7 @@ function bridge_openEditor(p: player, arena: text):
     {_inv}.setItem(12, bridge_makeItem("BEDROCK", 0, "§a§lY do Void", " §7- Valor Atual: §fY=%{_yvoid}%", "", "§eClique para editar este valor!"))
     {_inv}.setItem(13, bridge_makeItem("LADDER", 0, "§a§lAltura Máxima (Y-Max)", " §7- Valor Atual: §fY=%{_ymax}%", "", "§eClique para editar este valor!"))
     {_inv}.setItem(14, bridge_makeItem("FENCE", 0, "§a§lLimite Longitudinal", " §7- Valor Atual: §f%{_lponte}% blocos do centro", "", "§eClique para editar este valor!"))
-    {_inv}.setItem(15, bridge_makeItem("IRON_FENCE", 0, "§a§lLimite Lateral", " §7- Valor Atual: §f%{_llat}% blocos de largura", "", "§eClique para editar este valor!"))
+    {_inv}.setItem(15, bridge_makeItem("IRON_FENCE", 0, "§a§lLimite Lateral", " §7- Valor Atual: §f%{_llat}% blocos para cada lado", "", "§eClique para editar este valor!"))
 
     {_inv}.setItem(31, bridge_makeItem("ARROW", 0, "§c§lVoltar ao Menu Principal"))
 
@@ -128,7 +130,8 @@ function bridge_tellrawCmd(p: player, cmd: text, desc: text, isSuggest: boolean)
     set {_action} to "run_command"
     if {_isSuggest} is true:
         set {_action} to "suggest_command"
-    execute console command "tellraw %{_p}% {""text"":"""", ""extra"":[{""text"":""  §f%{_cmd}%"",""clickEvent"":{""action"":""%{_action}%"",""value"":""%{_cmd}%""}},{""text"":"" §8- §7%{_desc}%""}]}"
+    execute console command "tellraw %{_p}% {""text"":""  §f%{_cmd}%"",""clickEvent"":{""action"":""%{_action}%"",""value"":""%{_cmd}%""}}"
+    send "    &7%{_desc}%" to {_p}
 
 function bridge_sendHeader(p: player, title: text):
     send "" to {_p}
@@ -158,7 +161,7 @@ on chat:
             
         set {_val} to message parsed as integer
         if {_val} is not set:
-            send "%{bridge::config::erro}% &cValor inválido! Digite apenas números." to player
+            send "%{bridge::config::erro}% &cValor inválido. Digite um número inteiro ou use cancelar na edição." to player
             bridge_openEditor(player, {_arena})
             stop
             
@@ -293,20 +296,61 @@ on inventory click:
 # ---------------------------------------------------------
 # COMANDO PRINCIPAL /BRIDGE
 # ---------------------------------------------------------
+# Catálogo de comandos implementados. Não anuncia parties, 2v2 ou /spec ainda ausentes.
+function bridge_showHelp(p: player, page: text = "geral"):
+    bridge_sendHeader({_p}, "Ajuda &8| &f%{_page}%")
+    if {_page} is "geral":
+        send " &7Clique numa categoria. TAB também sugere os comandos existentes." to {_p}
+        bridge_tellrawCmd({_p}, "/bridge ajuda jogo", "Entrar, sair, retornar e consultar perfil", false)
+        bridge_tellrawCmd({_p}, "/bridge ajuda votos", "Pedir pausa, votar e antecipar retomada", false)
+        bridge_tellrawCmd({_p}, "/bridge ajuda arena", "Cadastrar molde, spawns, cages e limites", false)
+        bridge_tellrawCmd({_p}, "/bridge ajuda admin", "Lobby, menu, reset de instância e footer", false)
+    else if {_page} is "jogo":
+        bridge_tellrawCmd({_p}, "/arenas", "Abre o seletor de arenas", false)
+        bridge_tellrawCmd({_p}, "/jogar [arena]", "Entra na fila 1v1; aliases: /play e /join", true)
+        bridge_tellrawCmd({_p}, "/l", "Sai da fila ou vai ao lobby; retorno quando disponível", false)
+        bridge_tellrawCmd({_p}, "/retornar", "Volta à sessão vinculada pelo spawn do time", false)
+        bridge_tellrawCmd({_p}, "/stats [jogador]", "Consulta perfil salvo; aliases: /status e /perfil", true)
+        send " &7Entrar efetivamente em outra partida encerra o retorno à anterior." to {_p}
+    else if {_page} is "votos":
+        bridge_tellrawCmd({_p}, "/pausa", "Solicita pausa: precisa de SIM dos dois times", false)
+        bridge_tellrawCmd({_p}, "/bridgevote <sim|nao>", "Vota na consulta aberta; o primeiro voto é definitivo", true)
+        bridge_tellrawCmd({_p}, "/despausar", "Só o time solicitante vota; exige mais da metade", false)
+        send " &7O pedido já conta como SIM de quem solicitou." to {_p}
+        send " &7Pedido em votação não para a jogada nem o relógio." to {_p}
+        send " &7Prazo máximo: 30s; resultado definido executa antes." to {_p}
+    else if {_page} is "arena":
+        bridge_tellrawCmd({_p}, "/bridge setuparena <nome>", "Escaneia o molde e substitui seu cadastro", true)
+        bridge_tellrawCmd({_p}, "/bridge setcage <arena> <1|2>", "Salva sua posição como cage daquele time", true)
+        bridge_tellrawCmd({_p}, "/bridge setlimitpos <arena>", "Usa sua distância ao centro no eixo da ponte", true)
+        bridge_tellrawCmd({_p}, "/bridge setlimit <arena> <ponte|lateral> <valor>", "Distância em blocos do centro para CADA lado", true)
+        bridge_tellrawCmd({_p}, "/bridge set <arena> <propriedade> <valor>", "Regras da arena; tempo aqui é em SEGUNDOS", true)
+        send " &7Propriedades: gols, tempo, y-void, y-max," to {_p}
+        send " &7limite-ponte e limite-lateral. Não confunda cópia com área construível." to {_p}
+        send " &cCadastro pode substituir dados anteriores. Use sem partidas ativas." to {_p}
+    else if {_page} is "admin":
+        bridge_tellrawCmd({_p}, "/bridgelobby", "Define sua posição atual como lobby do Bridge", false)
+        bridge_tellrawCmd({_p}, "/bridge menu", "Abre o editor das arenas cadastradas", false)
+        bridge_tellrawCmd({_p}, "/bridge tp <arena> [centro|t1|t2]", "Visita o molde original, não uma partida", true)
+        bridge_tellrawCmd({_p}, "/bridgereset <instância>", "Restaura a cópia; não use em partida ativa", true)
+        bridge_tellrawCmd({_p}, "/bridgescoreboard setfooter <endereço>", "Altera e salva o endereço no rodapé da sidebar", true)
+        send " &7O clima é gerenciado nos mundos das arenas e do lobby configurado." to {_p}
+    else:
+        send " &cCategoria inválida. Use: jogo, votos, arena ou admin." to {_p}
+    bridge_sendFooter({_p})
+
 command /bridge [<text>] [<text>] [<text>] [<text>]:
     permission: bridge.admin
     permission message: &cVocê não tem permissão.
     trigger:
         if arg-1 is not set:
-            bridge_sendHeader(player, "Comandos de Gerenciamento")
-            bridge_tellrawCmd(player, "/bridge setuparena <nome>", "Escaneia e salva a arena", true)
-            bridge_tellrawCmd(player, "/bridge setlimitpos <arena>", "Seta limite de construção na sua posição", true)
-            bridge_tellrawCmd(player, "/bridge setcage <arena> <1|2>", "Define posição da cage do time", true)
-            bridge_tellrawCmd(player, "/bridge setlimit <arena> <ponte|lateral> <val>", "Define limites de construção", true)
-            bridge_tellrawCmd(player, "/bridge set <arena> <propriedade> <val>", "Altera valores padrão", true)
-            bridge_tellrawCmd(player, "/bridge tp <arena> [centro|t1|t2]", "Teleporta para a arena", true)
-            bridge_tellrawCmd(player, "/bridge menu", "Abre o menu GUI interativo", false)
-            bridge_sendFooter(player)
+            bridge_showHelp(player)
+            stop
+        if arg-1 is "ajuda" or "help":
+            set {_page} to arg-2
+            if {_page} is not set:
+                set {_page} to "geral"
+            bridge_showHelp(player, {_page})
             stop
 
         # ---------------------------------------------------------
@@ -320,7 +364,8 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
             set {_name} to arg-2
             set {_w} to player's world
             
-            send "%{bridge::config::prefix}% &eIniciando detecção inteligente da arena &f%{_name}%&e..." to player
+            send "%{bridge::config::prefix}% &eCadastro &8| &f%{_name}% &7no mundo %{_w}%" to player
+            send " &cEste cadastro substitui dados anteriores do mesmo nome." to player
             send "[Bridge] Setup da arena %{_name}% no mundo %{_w}%..." to console
 
             delete {_sponges::*}
@@ -490,11 +535,11 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 teleport player to {_old_loc}
 
             # RELATÓRIO DO CHAT ESPAÇADO E FORMATADO
-            bridge_sendHeader(player, "Arena &f%{_name}% &aConfigurada com Sucesso!")
+            bridge_sendHeader(player, "Resumo do cadastro &8| &f%{_name}%")
             send "  §7• §fEixo: §e%{_axis}% §8| §fMundo: §e%{_w}%" to player
             send "  §7• §fTime 1 (Cor %{_t1_color}%): §7Spawn em §f%{_s1_x}%, %{_s1_y}%, %{_s1_z}%" to player
             send "  §7• §fTime 2 (Cor %{_t2_color}%): §7Spawn em §f%{_s2_x}%, %{_s2_y}%, %{_s2_z}%" to player
-            send "  §7• §fLimites de Construção: §7Ponte §f%{bridge::arena::%{_name}%::limite-ponte}%b §8| §7Lateral §f%{bridge::arena::%{_name}%::limite-lateral}%b" to player
+            send "  §7• §fLimites de Construção: §7Ponte §f%{bridge::arena::%{_name}%::limite-ponte}%b §8| §7Lateral/lado §f%{bridge::arena::%{_name}%::limite-lateral}%b" to player
             send "  §7• §fRegras: §7Gols §f%{bridge::arena::%{_name}%::gols}% §8| §7Tempo §f%{bridge::arena::%{_name}%::tempo}%s §8| §7Void Y §f%{bridge::arena::%{_name}%::y-void}%" to player
             send "" to player
             send "  §eAções rápidas:" to player
@@ -505,7 +550,11 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
             # Pré-alocação
             send "%{bridge::config::prefix}% &ePré-alocando 3 instâncias automáticas..." to player
             bridge_expandInstances({_name}, 3)
-            send "%{bridge::config::sucesso}% &a3 Instâncias geradas e prontas para uso!" to player
+            set {_registered} to size of {bridge::arena::%{_name}%::instances::*}
+            if {_registered} >= 3:
+                send "%{bridge::config::sucesso}% &aPré-alocação: &f%{_registered}% &ainstâncias cadastradas. Confira o console para o resultado da colagem." to player
+            else:
+                send "%{bridge::config::erro}% &cPré-alocação incompleta: &f%{_registered}%/3&c. Verifique o console antes de abrir partidas." to player
 
         # ---------------------------------------------------------
         # SETAR LIMITE DE CONSTRUÇÃO DA PONTE PELA POSIÇÃO ATUAL
@@ -567,7 +616,7 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 send "%{bridge::config::erro}% &cA arena '%{_arena}%' não existe." to player
                 stop
             if {_val} is not set:
-                send "%{bridge::config::erro}% &cInforme um valor numérico válido." to player
+                send "%{bridge::config::erro}% &cInforme um número inteiro para o valor. Use /bridge ajuda arena para a sintaxe." to player
                 stop
 
             if {_tipo} is "ponte" or "longitudinal":
@@ -575,7 +624,7 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 send "%{bridge::config::sucesso}% &aLimite de construção na ponte de &f%{_arena}% &adefinido para &f%{_val}% &ablocos." to player
             else if {_tipo} is "lateral":
                 set {bridge::arena::%{_arena}%::limite-lateral} to {_val}
-                send "%{bridge::config::sucesso}% &aLimite de construção lateral de &f%{_arena}% &adefinido para &f%{_val}% &ablocos." to player
+                send "%{bridge::config::sucesso}% &aDistância lateral de &f%{_arena}%&a: &f%{_val}% blocos para cada lado&a." to player
 
         # ---------------------------------------------------------
         # ALTERAR PROPRIEDADES DA ARENA
@@ -592,7 +641,7 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 send "%{bridge::config::erro}% &cA arena '%{_arena}%' não existe." to player
                 stop
             if {_val} is not set:
-                send "%{bridge::config::erro}% &cInforme um valor numérico válido." to player
+                send "%{bridge::config::erro}% &cInforme um número inteiro para o valor. Use /bridge ajuda arena para a sintaxe." to player
                 stop
 
             set {bridge::arena::%{_arena}%::%{_prop}%} to {_val}
@@ -627,3 +676,5 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
         # ---------------------------------------------------------
         else if arg-1 is "menu" or "list" or "maps":
             bridge_openMainMenu(player)
+        else:
+            send "%{bridge::config::erro}% &cSubcomando desconhecido. Use &f/bridge ajuda&c." to player

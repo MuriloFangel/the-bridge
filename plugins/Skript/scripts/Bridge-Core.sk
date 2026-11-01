@@ -1,3 +1,5 @@
+# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
+# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
 # ================================================================
 # THE BRIDGE - CORE / ETAPA A: PRESENÇA, RETORNAR E TRAVA DE PAUSA
 # CarbonSpigot 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3 / skRayFall
@@ -72,9 +74,9 @@ function bridge_offerReturn(p: player):
     if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
         delete {bridge::return::%{_u}%::*}
         stop
-    send "%{bridge::config::prefix}% &eSua partida anterior ainda permite retorno. Use &f/retornar &eou clique abaixo." to {_p}
-    send " &7Você volta pelo spawn do seu time, com kit, não pela posição de saída." to {_p}
-    send " &7Se entrar efetivamente em outra partida, perderá o retorno à anterior." to {_p}
+    send "%{bridge::config::prefix}% &eRetorno disponível &8| &f/retornar &7ou botão abaixo." to {_p}
+    send " &7Você volta ao spawn do seu time com kit, nunca à posição de saída." to {_p}
+    send " &7Começar outra partida encerra este direito de retorno." to {_p}
     if {bridge::instance::%{_inst}%::frozen} is true:
         set {_waitLeft} to {bridge::instance::%{_inst}%::freeze_timer}
         if {_waitLeft} is set:
@@ -144,7 +146,7 @@ function bridge_detachPrevious(p: player):
             set {bridge::instance::%{_oldInst}%::members::%{_u}%::present} to false
             set {bridge::instance::%{_oldInst}%::members::%{_u}%::detached} to true
     if {_oldInst} is set:
-        send "%{bridge::config::prefix}% &eUma nova partida foi reservada para você. O retorno à anterior foi encerrado." to {_p}
+        send "%{bridge::config::prefix}% &eNova partida reservada. &7O retorno à sessão anterior foi encerrado." to {_p}
     delete {bridge::return::%{_u}%::*}
 
 # ---------------------------------------------------------
@@ -548,8 +550,8 @@ function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: in
         if {_requester} is not "":
             set {bridge::instance::%{_inst}%::voting::votes::%{_requester}%} to "SIM"
     bridge_chatInstance({_inst}, "&8&m--------------------------------")
-    bridge_chatInstance({_inst}, "&7Prazo máximo de votação: encerra antes assim que o resultado estiver decidido.")
-    bridge_chatInstance({_inst}, "&7O primeiro voto válido é definitivo. Contam somente os participantes presentes nesta sessão.")
+    bridge_chatInstance({_inst}, "&7A votação termina assim que o resultado estiver decidido; 30s é o máximo.")
+    bridge_chatInstance({_inst}, "&7Voto válido é definitivo. Só os presentes nesta sessão entram na contagem.")
 
     set {_msgHeader} to "%{bridge::config::prefix}% &e&lNOVA VOTAÇÃO: &f%{_type}% &7(%{_duration}%s)"
     set {_msgAsk} to "%{bridge::config::prefix}% &eClique abaixo ou use /bridgevote sim e /bridgevote nao."
@@ -558,7 +560,9 @@ function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: in
         bridge_chatInstance({_inst}, "&7Os dois times precisam aprovar. Abstenção não é SIM; o pedido já conta como SIM do solicitante.")
         bridge_chatInstance({_inst}, "&7Enquanto o pedido é votado, a jogada e o relógio continuam normalmente.")
     else if {_type} is "GOL DE OURO":
-        bridge_chatInstance({_inst}, "&eO tempo terminou empatado. Cada time precisa de SIM de pelo menos metade dos presentes. Ambos aprovando, o próximo gol vence; caso contrário, a partida termina empatada.")
+        bridge_chatInstance({_inst}, "&eGOL DE OURO &8| &7O tempo acabou com o placar empatado.")
+        bridge_chatInstance({_inst}, "&7Cada time precisa de SIM de pelo menos metade dos presentes.")
+        bridge_chatInstance({_inst}, "&7Ambos aprovando: próximo gol vence. Sem consenso: empate final.")
 
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
         if bridge_isPresent(loop-value, {_inst}) is true:
@@ -566,7 +570,7 @@ function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: in
             send {_msgHeader} to loop-value
             set {_ownVote} to false
             if {_type} is "PAUSA":
-                set {_voterUUID} to "%loop-value's uuid%"
+                set {_voterUUID} to loop-value's uuid
                 if {_voterUUID} is {_requester}:
                     set {_ownVote} to true
                     send "%{bridge::config::sucesso}% &aSeu voto &fSIM &ajá foi computado automaticamente porque você solicitou a pausa." to loop-value
@@ -583,7 +587,7 @@ function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: in
             send {_msgHeader} to loop-value
             set {_ownVote} to false
             if {_type} is "PAUSA":
-                set {_voterUUID} to "%loop-value's uuid%"
+                set {_voterUUID} to loop-value's uuid
                 if {_voterUUID} is {_requester}:
                     set {_ownVote} to true
                     send "%{bridge::config::sucesso}% &aSeu voto &fSIM &ajá foi computado automaticamente porque você solicitou a pausa." to loop-value
@@ -711,8 +715,10 @@ function bridge_evaluateVote(inst: text):
     set {_name2} to bridge_getTeamName({bridge::arena::%{_arenaVote}%::team::2::color})
     set {_need1} to floor(({_t1Total} + 1) / 2)
     set {_need2} to floor(({_t2Total} + 1) / 2)
-    bridge_chatInstance({_inst}, "&eResultado de %{_type}%: %{_name1}%&7: &f%{_t1Yes}% SIM/%{_t1Total}% presentes &7(mínimo %{_need1}% e ao menos um presente).")
-    bridge_chatInstance({_inst}, "%{_name2}%&7: &f%{_t2Yes}% SIM/%{_t2Total}% presentes &7(mínimo %{_need2}% e ao menos um presente).")
+    bridge_chatInstance({_inst}, "&eResultado &8| &f%{_type}%")
+    bridge_chatInstance({_inst}, "%{_name1}% &8| &a%{_t1Yes}% SIM &7/ %{_t1Total}% presentes &8| &7mínimo %{_need1}%")
+    bridge_chatInstance({_inst}, "%{_name2}% &8| &a%{_t2Yes}% SIM &7/ %{_t2Total}% presentes &8| &7mínimo %{_need2}%")
+    bridge_chatInstance({_inst}, "&7Time sem presentes não aprova, mesmo que o mínimo exibido seja zero.")
     set {_t1Pass} to false
     set {_t2Pass} to false
 
@@ -868,7 +874,7 @@ command /bridgelobby:
     executable by: players
     trigger:
         set {bridge::config::lobby} to location of player
-        send "%{bridge::config::sucesso}% &aLobby do The Bridge definido com sucesso!" to player
+        send "%{bridge::config::sucesso}% &aLobby salvo na sua posição atual. &7O clima desse mundo será protegido." to player
 
 command /jogar [<text>]:
     aliases: /play, /join
@@ -877,7 +883,7 @@ command /jogar [<text>]:
         set {_u} to player's uuid
 
         if {bridge::config::lobby} is not set:
-            send "%{bridge::config::erro}% &cConfigure o lobby com /bridgelobby antes de jogar." to player
+            send "%{bridge::config::erro}% &cO lobby do Bridge ainda não foi definido. Avise a administração." to player
             stop
         if {bridge::player::%{_u}%::state} is set:
             send "%{bridge::config::erro}% &cVocê já está em uma fila ou partida." to player
@@ -889,7 +895,7 @@ command /jogar [<text>]:
             send "%{bridge::config::erro}% &cNenhuma arena cadastrada." to player
             stop
         if {bridge::arenas::*} does not contain {_arena}:
-            send "%{bridge::config::erro}% &cArena não encontrada." to player
+            send "%{bridge::config::erro}% &cArena não encontrada. Consulte as opções em /arenas." to player
             stop
         if {bridge::return::%{_u}%::instance} is set:
             send "%{bridge::config::prefix}% &eVocê ainda pode usar /l e /retornar enquanto espera. Se outra partida começar, o retorno à anterior será encerrado." to player
@@ -923,7 +929,7 @@ command /retornar:
     trigger:
         set {_u} to player's uuid
         if {bridge::player::%{_u}%::state} is set:
-            send "%{bridge::config::erro}% &cVocê já está em uma fila ou partida. Se estiver na fila, use /l antes de retornar." to player
+            send "%{bridge::config::erro}% &cVocê já está em fila ou partida. &7Para sair da fila antes do retorno, use /l." to player
             stop
         set {_inst} to {bridge::return::%{_u}%::instance}
         set {_sid} to {bridge::return::%{_u}%::match_id}
@@ -1641,9 +1647,9 @@ on consume of golden apple:
         if {bridge::player::%player's uuid%::gapple_eaten} is not set:
             set {bridge::player::%player's uuid%::gapple_eaten} to true
             apply absorption 1 to player for 999 minutes
-            send "%{bridge::config::prefix}% &eMaçã consumida: Vidas extras concedidas!" to player
+            send "%{bridge::config::prefix}% &eMaçã consumida &8| &7Vida restaurada e absorção inicial concedida." to player
         else:
-            send "%{bridge::config::prefix}% &eMaçã consumida: Vida restaurada!" to player
+            send "%{bridge::config::prefix}% &eMaçã consumida &8| &7Vida restaurada; sem nova absorção nesta vida." to player
 
 on shoot:
     if shooter is player:
@@ -1658,7 +1664,7 @@ on shoot:
                     set slot 8 of shooter's inventory to 1 arrow
                     bridge_corePling(shooter, 1.8)
                     bridge_sendActionBar(shooter, "&a+1 Flecha regenerada!")
-                    send "%{bridge::config::prefix}% &aSua flecha foi regenerada!" to shooter
+                    send "%{bridge::config::prefix}% &aFlecha reposta &8| &7O arco está disponível." to shooter
 
 # ---------------------------------------------------------
 # PERMISSÃO DE DROP E COLETA EXCLUSIVAS PARA ARGILA
@@ -1721,7 +1727,7 @@ on block place:
 
     if y-coordinate of event-block > {bridge::arena::%{_arena}%::y-max}:
         cancel event
-        send "%{bridge::config::erro}% &cAltura máxima atingida!" to player
+        send "%{bridge::config::erro}% &cVocê atingiu a altura máxima de construção desta arena." to player
         stop
 
     set {_bx} to floor(x-coordinate of event-block)
@@ -1738,12 +1744,12 @@ on block place:
 
     if {_long} > {bridge::arena::%{_arena}%::limite-ponte}:
         cancel event
-        send "%{bridge::config::erro}% &cLimite de avanço na ponte atingido!" to player
+        send "%{bridge::config::erro}% &cEsse bloco ultrapassa a distância longitudinal permitida." to player
         stop
 
     if {_lat} > {bridge::arena::%{_arena}%::limite-lateral}:
         cancel event
-        send "%{bridge::config::erro}% &cLimite lateral atingido!" to player
+        send "%{bridge::config::erro}% &cEsse bloco ultrapassa a distância lateral permitida." to player
         stop
 
     if {bridge::instance::%{_inst}%::placed_blocks::*} does not contain location of event-block:
@@ -1824,7 +1830,7 @@ on damage:
         if {bridge::player::%victim's uuid%::respawn_protection} is set:
             cancel event
             if attacker is player:
-                send "%{bridge::config::erro}% &cEste jogador está sob proteção de renascimento!" to attacker
+                send "%{bridge::config::erro}% &eAtaque bloqueado: o jogador está protegido após renascer." to attacker
             stop
 
         if damage cause is fall:
@@ -1947,11 +1953,11 @@ function bridge_checkDisconnectState(inst: text, team: integer, dcName: text):
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
         if bridge_isPresent(loop-value, {_inst}) is true:
             send {_msg} to loop-value
-            bridge_coreTitle(loop-value, "&c&lJOGADOR DESCONECTADO", "&7Aguardando %{_dcName}%", 40)
+            bridge_coreTitle(loop-value, "&c&lPARTICIPANTE AUSENTE", "&7Aguardando %{_dcName}%", 40)
     loop {bridge::instance::%{_inst}%::team::2::players::*}:
         if bridge_isPresent(loop-value, {_inst}) is true:
             send {_msg} to loop-value
-            bridge_coreTitle(loop-value, "&c&lJOGADOR DESCONECTADO", "&7Aguardando %{_dcName}%", 40)
+            bridge_coreTitle(loop-value, "&c&lPARTICIPANTE AUSENTE", "&7Aguardando %{_dcName}%", 40)
 
 
 function bridge_handleDisconnectTimeout(inst: text):
@@ -2032,10 +2038,10 @@ function bridge_endMatch(inst: text, winnerTeam: integer):
     if {_winnerTeam} > 0:
         set {_winColorData} to {bridge::arena::%{_arena}%::team::%{_winnerTeam}%::color}
         set {_winTeamName} to bridge_getTeamName({_winColorData})
-        set {_msgEnd} to "%{bridge::config::prefix}% &a&lFIM DE PARTIDA! &7O %{_winTeamName}% &7venceu o jogo!"
+        set {_msgEnd} to "%{bridge::config::prefix}% &aFIM DE PARTIDA %{_winTeamName}% &7venceu a partida!"
         set {_subEnd} to "&7O %{_winTeamName}% &7venceu a partida!"
     else:
-        set {_msgEnd} to "%{bridge::config::prefix}% &e&lFIM DE PARTIDA! &7A partida terminou em &e&lEMPATE&7!"
+        set {_msgEnd} to "%{bridge::config::prefix}% &eFIM DE PARTIDA &7A partida terminou em &e&lEMPATE&7!"
         set {_subEnd} to "&7A partida terminou em EMPATE!"
 
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
