@@ -1,5 +1,7 @@
+# Bridge-Delivery-ID: TB-20261101T053736Z-4EB79ECC
+# Bridge-Base-Commit: e1a735048bcbbadd73b26fc3b198a04df6c89c8f
 # ================================================================
-# THE BRIDGE - CLIMA DOS MUNDOS DE ARENA
+# THE BRIDGE - CLIMA DO LOBBY E DOS MUNDOS DE ARENA
 # Minecraft 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3
 # Não altera horário, dificuldade, gamerules, blocos ou estados da partida.
 # ================================================================
@@ -15,6 +17,13 @@ function bridge_weatherManaged(w: object) :: boolean:
     if {_w} is not set:
         return false
     set {_worldName} to {_w}.getName()
+    # O lobby é uma location persistida pelo /bridgelobby, não um nome de mundo fixo.
+    set {_lobby} to {bridge::config::lobby}
+    if {_lobby} is set:
+        set {_lobbyWorld} to {_lobby}.getWorld()
+        if {_lobbyWorld} is set:
+            if {_lobbyWorld}.getName() is {_worldName}:
+                return true
     loop {bridge::arenas::*}:
         if {bridge::arena::%loop-value%::world} is {_worldName}:
             return true
@@ -44,6 +53,19 @@ function bridge_weatherClear(w: object) :: boolean:
 function bridge_weatherSweep(report: boolean):
     set {_loaded} to 0
     set {_clear} to 0
+    set {_lobby} to {bridge::config::lobby}
+    if {_lobby} is set:
+        set {_lobbyWorld} to {_lobby}.getWorld()
+        if {_lobbyWorld} is set:
+            set {_lobbyName} to {_lobbyWorld}.getName()
+            set {_seen::%{_lobbyName}%} to true
+            add 1 to {_loaded}
+            if bridge_weatherClear({_lobbyWorld}) is true:
+                add 1 to {_clear}
+        else if {_report} is true:
+            send "[Bridge] CLIMA: mundo do lobby indisponível. O módulo não o carrega automaticamente." to console
+    else if {_report} is true:
+        send "[Bridge] CLIMA: lobby ainda não definido. Use /bridgelobby no local desejado para incluir seu mundo na proteção." to console
     # Consulta apenas mundos já carregados; não cria nem carrega mundos.
     # Deduplicação: duas arenas no mesmo mundo não repetem a limpeza no sweep.
     loop {bridge::arenas::*}:
@@ -59,7 +81,7 @@ function bridge_weatherSweep(report: boolean):
                 else if {_report} is true:
                     send "[Bridge] CLIMA: mundo de arena '%{_worldName}%' não está carregado. O módulo não o carrega automaticamente." to console
     if {_report} is true:
-        send "[Bridge] Clima de arenas: %{_clear}%/%{_loaded}% mundo(s) carregado(s) conferido(s) sem chuva ou trovoada." to console
+        send "[Bridge] Clima de lobby e arenas: %{_clear}%/%{_loaded}% mundo(s) carregado(s) conferido(s) sem chuva ou trovoada." to console
 
 on load:
     delete {-bridge::weather::warned::*}
