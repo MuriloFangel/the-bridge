@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
-# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
+# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
+# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -334,6 +334,7 @@ function bridge_showHelp(p: player, page: text = "geral"):
         bridge_tellrawCmd({_p}, "/bridge tp <arena> [centro|t1|t2]", "Visita o molde original, não uma partida", true)
         bridge_tellrawCmd({_p}, "/bridgereset <instância>", "Restaura a cópia; não use em partida ativa", true)
         bridge_tellrawCmd({_p}, "/bridgescoreboard setfooter <endereço>", "Altera e salva o endereço no rodapé da sidebar", true)
+        bridge_tellrawCmd({_p}, "/bridgeguardian [check|status|detalhes]", "Confere arquivos obrigatórios e funções registradas", true)
         send " &7O clima é gerenciado nos mundos das arenas e do lobby configurado." to {_p}
     else:
         send " &cCategoria inválida. Use: jogo, votos, arena ou admin." to {_p}

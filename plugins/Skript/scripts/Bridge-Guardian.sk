@@ -1,0 +1,129 @@
+# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
+# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
+# ================================================================
+# THE BRIDGE - GUARDIAN / VERIFICAÇÃO NÃO DESTRUTIVA
+# Atualizar o CATÁLOGO CENTRAL abaixo a cada novo módulo obrigatório.
+# Presença de arquivo e registro de função NÃO comprovam execução/gameplay.
+# Não carrega, descarrega, instala, apaga ou corrige scripts automaticamente.
+# ================================================================
+
+import:
+    org.bukkit.Bukkit as GuardianBukkit
+    java.io.File as GuardianFile
+
+function bridge_guardianTell(target: object, msg: text):
+    if {_target} is set:
+        set {_text} to colored {_msg}
+        {_target}.sendMessage({_text})
+
+function bridge_guardianCheck(target: object, details: boolean = false, force: boolean = true) :: boolean:
+    # CATÁLOGO CENTRAL: arquivos obrigatórios, inclusive esta etapa de extração.
+    set {_required::*} to "Bridge-Config.sk", "Bridge-Core.sk", "Bridge-Setup.sk", "Bridge-Instances.sk", "Bridge-Stats.sk", "Bridge-Scoreboard.sk", "Bridge-GUI.sk", "Bridge-Commands.sk", "Bridge-Environment.sk", "Bridge-Loadout.sk", "Bridge-Cages.sk" and "Bridge-Guardian.sk"
+    # Probes consultam o registro de funções do Skript; nunca executam a função.
+    set {_probes::Bridge-Core.sk::*} to "bridge_startMatch", "bridge_endMatch", "bridge_isPresent" and "bridge_checkVoteEarlyComplete"
+    set {_probes::Bridge-Setup.sk::*} to "bridge_showHelp" and "bridge_openMainMenu"
+    set {_probes::Bridge-Instances.sk::*} to "bridge_getLoc", "bridge_resetInstance" and "bridge_pasteSchematic"
+    set {_probes::Bridge-Stats.sk::*} to "bridge_addStat" and "bridge_getStat"
+    set {_probes::Bridge-Scoreboard.sk::*} to "bridge_updateScoreboard" and "bridge_sidebarTime"
+    set {_probes::Bridge-GUI.sk::*} to "bridge_openArenaMenu"
+    set {_probes::Bridge-Commands.sk::*} to "bridge_tabScan"
+    set {_probes::Bridge-Environment.sk::*} to "bridge_weatherManaged" and "bridge_weatherClear"
+    set {_probes::Bridge-Loadout.sk::*} to "bridge_coreColor", "bridge_giveLeatherArmor" and "bridge_giveKit"
+    set {_probes::Bridge-Cages.sk::*} to "bridge_buildCage" and "bridge_removeCage"
+    set {_probes::Bridge-Guardian.sk::*} to "bridge_guardianCheck"
+    # Config só declara evento de load: sua presença não prova que ele executou.
+    set {_plugin} to GuardianBukkit.getPluginManager().getPlugin("Skript")
+    if {_plugin} is not set:
+        bridge_guardianTell({_target}, "&c[Bridge Guardian] Não foi possível localizar o plugin Skript.")
+        return false
+    set {_folder} to {_plugin}.getDataFolder()
+    set {_root} to new GuardianFile({_folder}, "scripts")
+    set {_filesOk} to 0
+    set {_functionsOk} to 0
+    set {_functionsTotal} to 0
+    set {_signature} to ""
+    loop {_required::*}:
+        set {_name} to loop-value
+        set {_file} to new GuardianFile({_root}, {_name})
+        set {_present} to false
+        if {_file}.isFile() is true:
+            if {_file}.length() > 0:
+                set {_present} to true
+        if {_present} is true:
+            add 1 to {_filesOk}
+        else:
+            set {_signature} to "%{_signature}%|arquivo:%{_name}%"
+            add "&cFALTA/VAZIO &8| &f%{_name}%" to {_issues::*}
+        set {_localOk} to 0
+        set {_localTotal} to 0
+        loop {_probes::%{_name}%::*}:
+            set {_fnName} to loop-value-2
+            add 1 to {_functionsTotal}
+            add 1 to {_localTotal}
+            set {_ref} to function reference {_fnName}
+            delete {_registered}
+            if {_ref} is set:
+                set {_registered} to {_ref}.getFunction()
+            if {_registered} is set:
+                add 1 to {_functionsOk}
+                add 1 to {_localOk}
+            else:
+                set {_signature} to "%{_signature}%|funcao:%{_name}%:%{_fnName}%"
+                add "&cFUNÇÃO AUSENTE &8| &f%{_fnName}% &7(%{_name}%)" to {_issues::*}
+        if {_present} is true:
+            add "&aARQUIVO PRESENTE &8| &f%{_name}% &8| &7funções %{_localOk}%/%{_localTotal}%" to {_rows::*}
+        else:
+            add "&cARQUIVO AUSENTE/VAZIO &8| &f%{_name}% &8| &7funções %{_localOk}%/%{_localTotal}%" to {_rows::*}
+    set {_ok} to false
+    set {_count} to size of {_required::*}
+    if {_filesOk} is {_count}:
+        if {_functionsOk} is {_functionsTotal}:
+            set {_ok} to true
+    if {_force} is false:
+        if {-bridge::guardian::last_signature} is {_signature}:
+            return {_ok}
+    set {-bridge::guardian::last_signature} to {_signature}
+    bridge_guardianTell({_target}, "&8&m--------------------------------")
+    bridge_guardianTell({_target}, "&9&lBRIDGE GUARDIAN &8| &7Verificação de dependências")
+    bridge_guardianTell({_target}, "&7Arquivos: &f%{_filesOk}%/%{_count}% &8| &7Funções registradas: &f%{_functionsOk}%/%{_functionsTotal}%")
+    if {_ok} is true:
+        bridge_guardianTell({_target}, "&aOs arquivos e probes exigidos foram encontrados.")
+    else:
+        bridge_guardianTell({_target}, "&cHá dependências ausentes ou sem função registrada. Confira também o log do reload.")
+        loop {_issues::*}:
+            bridge_guardianTell({_target}, loop-value)
+    if {_details} is true:
+        loop {_rows::*}:
+            bridge_guardianTell({_target}, loop-value)
+    bridge_guardianTell({_target}, "&7Isto não certifica carga integral de comandos/eventos nem teste de gameplay.")
+    bridge_guardianTell({_target}, "&8&m--------------------------------")
+    return {_ok}
+
+command /bridgeguardian [<text>]:
+    permission: bridge.admin
+    permission message: &cSomente a administração pode consultar o Guardian.
+    executable by: players and console
+    trigger:
+        set {_action} to arg-1
+        if {_action} is not set:
+            set {_action} to "check"
+        if {_action} is "check" or "status":
+            set {_ok} to bridge_guardianCheck(executor)
+        else if {_action} is "detalhes":
+            set {_ok} to bridge_guardianCheck(executor, true)
+        else:
+            send "&eUse: &f/bridgeguardian [check|status|detalhes]" to executor
+
+on load:
+    delete {-bridge::guardian::last_signature}
+    if {bridge::tab::custom::bridgeguardian::1::*} is not set:
+        set {bridge::tab::custom::bridgeguardian::1::*} to "check", "status" and "detalhes"
+    # Aguarda os demais scripts antes de consultar suas funções.
+    wait 2 ticks
+    set {_console} to GuardianBukkit.getConsoleSender()
+    set {_ok} to bridge_guardianCheck({_console})
+
+every 30 seconds:
+    # Relatório automático só muda quando o resultado da verificação muda.
+    set {_console} to GuardianBukkit.getConsoleSender()
+    set {_ok} to bridge_guardianCheck({_console}, false, false)

@@ -1,0 +1,86 @@
+# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
+# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
+# ================================================================
+# THE BRIDGE - CAGES FÍSICAS / EXTRAÇÃO SEM MUDANÇA DE GAMEPLAY
+# Mantém geometria, cor, snapshots e restauração. Sem eventos ou timers próprios.
+# ================================================================
+
+import:
+    org.bukkit.Material
+
+# ---------------------------------------------------------
+# CONSTRUTOR E REMOVEDOR DE CAGES FÍSICAS
+# ---------------------------------------------------------
+function bridge_buildCage(center: location, colorData: integer, inst: text):
+    set {_w} to world of {_center}
+    set {_cx} to floor(x-coordinate of {_center})
+    set {_cy} to floor(y-coordinate of {_center})
+    set {_cz} to floor(z-coordinate of {_center})
+    set {_minY} to {_cy} - 1
+    set {_maxY} to {_cy} + 3
+    set {_minX} to {_cx} - 2
+    set {_maxX} to {_cx} + 2
+    set {_minZ} to {_cz} - 2
+    set {_maxZ} to {_cz} + 2
+    set {_checked} to 0
+    set {_failed} to 0
+
+    loop 5 times:
+        set {_y} to {_minY} + loop-value - 1
+        loop 5 times:
+            set {_x} to {_minX} + loop-value-2 - 1
+            loop 5 times:
+                set {_z} to {_minZ} + loop-value-3 - 1
+                set {_outer} to false
+                if {_y} is {_minY}:
+                    set {_outer} to true
+                if {_y} is {_maxY}:
+                    set {_outer} to true
+                if {_x} is {_minX}:
+                    set {_outer} to true
+                if {_x} is {_maxX}:
+                    set {_outer} to true
+                if {_z} is {_minZ}:
+                    set {_outer} to true
+                if {_z} is {_maxZ}:
+                    set {_outer} to true
+                if {_outer} is true:
+                    set {_loc} to location at {_x}, {_y}, {_z} in {_w}
+                    set {_key} to "%{_x}%,%{_y}%,%{_z}%"
+                    set {_b} to {_loc}.getBlock()
+                    if {bridge::instance::%{_inst}%::cage_blocks::*} does not contain {_loc}:
+                        set {-bridge::cage_snapshot::%{_inst}%::%{_key}%} to {_b}.getState()
+                        add {_loc} to {bridge::instance::%{_inst}%::cage_blocks::*}
+                    {_b}.setType(Material.STAINED_GLASS, false)
+                    {_b}.setData({_colorData}, false)
+                    add 1 to {_checked}
+                    if {_b}.getType().getId() is not 95:
+                        add 1 to {_failed}
+                    else if {_b}.getData() is not {_colorData}:
+                        add 1 to {_failed}
+    if {_checked} is not 98:
+        send "[Bridge] ERRO: cage %{_inst}% em %{_center}%: %{_checked}% posições; esperado 98." to console
+    if {_failed} > 0:
+        send "[Bridge] ERRO: cage %{_inst}% em %{_center}%: %{_failed}% blocos de vidro falharam. Verifique teto, piso e paredes." to console
+        bridge_chatInstance({_inst}, "&cFalha na montagem da cage. Avise a administração; não tente sair pelo vão.")
+
+function bridge_removeCage(inst: text):
+    loop {bridge::instance::%{_inst}%::cage_blocks::*}:
+        set {_loc} to loop-value
+        set {_x} to floor(x-coordinate of {_loc})
+        set {_y} to floor(y-coordinate of {_loc})
+        set {_z} to floor(z-coordinate of {_loc})
+        set {_key} to "%{_x}%,%{_y}%,%{_z}%"
+        set {_saved} to {-bridge::cage_snapshot::%{_inst}%::%{_key}%}
+        if {_saved} is set:
+            set {_restored} to {_saved}.update(true, false)
+            if {_restored} is false:
+                send "[Bridge] ERRO: falha ao restaurar bloco temporário de cage em %{_loc}% (%{_inst}%)." to console
+        else:
+            # Compatibilidade com registros de cage da versão anterior (somente ar).
+            set {_b} to {_loc}.getBlock()
+            if {_b}.getType().getId() is 95:
+                {_b}.setType(Material.AIR, false)
+    delete {bridge::instance::%{_inst}%::cage_blocks::*}
+    delete {-bridge::cage_snapshot::%{_inst}%::*}
+
