@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261101T042032Z-817D9FCD",
+  "status": "GERADA",
+  "created_at": "2026-11-01T04:20:32.719526Z",
+  "base_commit": "c8c885abe4700d57c6dbd846699eb59b6f078840",
+  "prepared_on_commit": "c8c885abe4700d57c6dbd846699eb59b6f078840",
+  "objective": "Adicionar ledger separado, IDs, hashes e observacoes do sincronizador sem alterar gameplay.",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "path": "PROMPT-NOVO-CHAT.md",
+      "sha256_normalized_utf8_lf": "b63a6fe6b61b6018f69779eea6807c05f19b85a925481585553a05f56f2216fe"
+    },
+    {
+      "path": "RASTREABILIDADE.md",
+      "sha256_normalized_utf8_lf": "7ebd6e88abd44a87b4faf69f28360907672de13856e7f913c6456880eda3ad97"
+    },
+    {
+      "path": "README.md",
+      "sha256_normalized_utf8_lf": "823ae3157227bd61f4829e1fd8a6fbc0312d90b704935800e219f01533e64b54"
+    },
+    {
+      "path": "Sincronizar-GitHub.ps1",
+      "sha256_normalized_utf8_lf": "51a856c538fde869449b47c1772decb6e99919f5701ea8d1bde1986858252835"
+    },
+    {
+      "path": "tools/Bridge-Rastreabilidade.ps1",
+      "sha256_normalized_utf8_lf": "ebec4884f63e2d6bba712723d6910d91b285ff81bc7f4b9db196bb2fe02121b5"
+    },
+    {
+      "path": "tools/Instalar-Rastreabilidade.ps1",
+      "sha256_normalized_utf8_lf": "0ead963fcc6a4921e5547ed82d1dc358b50a57e0977f16e30a56dc2e559824fa"
+    }
+  ],
+  "changes": [
+    "Hooks BeforeCommit e AfterPush no sincronizador auditado",
+    "Ledger separado de propostas",
+    "Manifestos e observacoes com SHA-256 normalizado",
+    "Prompt e protocolo de continuidade"
+  ],
+  "must_preserve": [
+    "main recebe codigo pelo PC",
+    "Filtro textual e protecoes existentes",
+    "Nenhum script do Minecraft modificado"
+  ],
+  "dependencies": [
+    "Sincronizador com hooks exige tools/Bridge-Rastreabilidade.ps1"
+  ],
+  "tests_performed": [
+    "Ensaios de hash/classificacao e fluxo Git em ambiente temporario, conforme relatorio do pacote; PowerShell nao executado"
+  ],
+  "tests_pending": [
+    "Instalacao Windows",
+    "Uma observacao estavel sem loop de commits",
+    "Entrega parcial/divergente",
+    "Confirmação de push e recibo local"
+  ],
+  "relates_to": []
+}
