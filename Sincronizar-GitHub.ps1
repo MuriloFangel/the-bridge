@@ -1,4 +1,6 @@
-﻿#requires -Version 7.0
+﻿#requires -Version 7.2
+# Bridge-Delivery-ID: TB-20261101T042032Z-817D9FCD
+# Bridge-Base-Commit: c8c885abe4700d57c6dbd846699eb59b6f078840
 [CmdletBinding()]
 param(
     [string]$ProjectPath = 'F:\srv\vibecoding',
@@ -102,8 +104,20 @@ function Stage-And-Check {
             if ($item.Length -ge 95MB) { throw "STOP: arquivo >=95 MiB: $name. Revise armazenamento/LFS antes de enviar." }
         }
     }
+    Invoke-BridgeTrace -Mode BeforeCommit
     return (G -Arguments @('write-tree')).Text
 }
+# BEGIN BRIDGE TRACE HOOK V1
+function Invoke-BridgeTrace {
+    param([ValidateSet('BeforeCommit','AfterPush')][string]$Mode)
+    $worker=Join-Path $Root 'tools/Bridge-Rastreabilidade.ps1'
+    if(-not(Test-Path -LiteralPath $worker)){throw 'STOP: helper de rastreabilidade ausente.'}
+    try {
+        $run=Invoke-Program -Exe (Join-Path $PSHOME 'pwsh.exe') -Arguments @('-NoProfile','-ExecutionPolicy','Bypass','-File',$worker,'-ProjectPath',$Root,'-Mode',$Mode)
+    } catch { throw ('STOP: Rastreador impediu a operacao: '+$_.Exception.Message) }
+    if(-not [string]::IsNullOrWhiteSpace($run.Text)){Say $run.Text}
+}
+# END BRIDGE TRACE HOOK V1
 function Push-Current {
     Assert-Branch
     Assert-RemoteSafe
@@ -112,6 +126,7 @@ function Push-Current {
     Save-Config
     $sha = (G -Arguments @('rev-parse','--short','HEAD')).Text
     Say "GitHub atualizado: main @ $sha"
+    try { Invoke-BridgeTrace -Mode AfterPush } catch { Say ('Push ja concluido; recibo local de rastreio falhou: '+$_.Exception.Message) }
 }
 
 if ($RemoveStartup) {

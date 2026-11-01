@@ -1,3 +1,5 @@
+<!-- Bridge-Delivery-ID: TB-20261101T042032Z-817D9FCD -->
+<!-- Bridge-Base-Commit: c8c885abe4700d57c6dbd846699eb59b6f078840 -->
 # The Bridge — código, gameplay e continuidade com IA
 
 ## Comece aqui — instruções obrigatórias para a IA
@@ -310,3 +312,9 @@ Atualize decisões e estado quando mudar gameplay. O sincronizador não escreve 
 
 Leia [SINCRONIZACAO-TEXTO.md](SINCRONIZACAO-TEXTO.md). Esta secao substitui instrucoes anteriores de enviar a pasta inteira: somente codigo, configuracoes textuais permitidas, exemplos e documentacao entram nos novos commits. Mundos, JARs, bancos, logs e dados de jogadores continuam locais. server.properties real fica fora; consulte o exemplo sem senha. Os arquivos do primeiro commit continuam no HISTORICO: esta migracao nao o reescreveu. CSV runtime nao substitui exportacao revisada de arenas. Sync nao significa reload ou teste. A distribuicao final com downloads verificados e caminhos relativos sera uma etapa separada. As regras de gameplay acima nao foram alteradas.
 <!-- END THE-BRIDGE TEXT-SYNC NOTICE -->
+
+<!-- BEGIN BRIDGE DELIVERY PROTOCOL -->
+## Entregas rastreaveis e prompt de continuidade
+
+Leia [RASTREABILIDADE.md](RASTREABILIDADE.md) e use [PROMPT-NOVO-CHAT.md](PROMPT-NOVO-CHAT.md). Codigo efetivo continua na main via PC/sincronizador. A branch ai-deliveries guarda propostas GERADAS, nao versao instalada. Cada entrega possui ID e manifesto com hashes; observacoes locais verificam correspondencia sem declarar teste. Esta secao complementa as instrucoes anteriores de consulta ao GitHub e nao altera o gameplay.
+<!-- END BRIDGE DELIVERY PROTOCOL -->

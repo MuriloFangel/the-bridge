@@ -1,0 +1,95 @@
+# ================================================================
+# THE BRIDGE - CLIMA DOS MUNDOS DE ARENA
+# Minecraft 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3
+# Não altera horário, dificuldade, gamerules, blocos ou estados da partida.
+# ================================================================
+
+import:
+    org.bukkit.Bukkit
+    org.bukkit.event.weather.WeatherChangeEvent
+    org.bukkit.event.weather.ThunderChangeEvent
+    org.bukkit.event.world.WorldLoadEvent
+    org.bukkit.event.player.PlayerTeleportEvent
+
+function bridge_weatherManaged(w: object) :: boolean:
+    if {_w} is not set:
+        return false
+    set {_worldName} to {_w}.getName()
+    loop {bridge::arenas::*}:
+        if {bridge::arena::%loop-value%::world} is {_worldName}:
+            return true
+    return false
+
+function bridge_weatherClear(w: object) :: boolean:
+    if bridge_weatherManaged({_w}) is not true:
+        return false
+    set {_name} to {_w}.getName()
+    if {_w}.isThundering() is true:
+        {_w}.setThundering(false)
+    if {_w}.hasStorm() is true:
+        {_w}.setStorm(false)
+    set {_ok} to true
+    if {_w}.isThundering() is true:
+        set {_ok} to false
+    if {_w}.hasStorm() is true:
+        set {_ok} to false
+    if {_ok} is false:
+        if {-bridge::weather::warned::%{_name}%} is not true:
+            send "[Bridge] CLIMA: não foi possível limpar chuva/trovoada no mundo '%{_name}%'. Confira se outro plugin impede a mudança." to console
+            set {-bridge::weather::warned::%{_name}%} to true
+    else:
+        delete {-bridge::weather::warned::%{_name}%}
+    return {_ok}
+
+function bridge_weatherSweep(report: boolean):
+    set {_loaded} to 0
+    set {_clear} to 0
+    # Consulta apenas mundos já carregados; não cria nem carrega mundos.
+    # Deduplicação: duas arenas no mesmo mundo não repetem a limpeza no sweep.
+    loop {bridge::arenas::*}:
+        set {_worldName} to {bridge::arena::%loop-value%::world}
+        if {_worldName} is set:
+            if {_seen::%{_worldName}%} is not true:
+                set {_seen::%{_worldName}%} to true
+                set {_w} to Bukkit.getWorld({_worldName})
+                if {_w} is set:
+                    add 1 to {_loaded}
+                    if bridge_weatherClear({_w}) is true:
+                        add 1 to {_clear}
+                else if {_report} is true:
+                    send "[Bridge] CLIMA: mundo de arena '%{_worldName}%' não está carregado. O módulo não o carrega automaticamente." to console
+    if {_report} is true:
+        send "[Bridge] Clima de arenas: %{_clear}%/%{_loaded}% mundo(s) carregado(s) conferido(s) sem chuva ou trovoada." to console
+
+on load:
+    delete {-bridge::weather::warned::*}
+    # Aguarda o término do carregamento dos módulos/variáveis existentes.
+    wait 1 tick
+    bridge_weatherSweep(true)
+
+every 5 seconds:
+    # Reconhece cadastros novos e corrige alterações diretas feitas por outros plugins.
+    bridge_weatherSweep(false)
+
+on WorldLoadEvent:
+    set {_w} to event.getWorld()
+    set {_ok} to bridge_weatherClear({_w})
+
+on PlayerTeleportEvent:
+    # Limpa antes da chegada ao mundo de destino, sem alterar o teleporte.
+    set {_to} to event.getTo()
+    if {_to} is set:
+        set {_w} to {_to}.getWorld()
+        set {_ok} to bridge_weatherClear({_w})
+
+on WeatherChangeEvent:
+    set {_w} to event.getWorld()
+    if bridge_weatherManaged({_w}) is true:
+        if event.toWeatherState() is true:
+            event.setCancelled(true)
+
+on ThunderChangeEvent:
+    set {_w} to event.getWorld()
+    if bridge_weatherManaged({_w}) is true:
+        if event.toThunderState() is true:
+            event.setCancelled(true)
