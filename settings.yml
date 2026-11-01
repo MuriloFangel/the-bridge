@@ -1,0 +1,507 @@
+SETTINGS:
+  SYSTEM:
+    
+    # DO NOT TOUCH!
+    CONFIG-VER: 5
+  COMMANDS:
+    
+    # Toggle whether the version command should be enabled or not
+    VERSION-COMMAND-ENABLED: true
+    
+    # Toggle whether the ping command should be enabled or not
+    PING-COMMAND-ENABLED: true
+    
+    # Toggle whether the plugin command should be enabled or not
+    PLUGIN-COMMAND-ENABLED: true
+    
+    # Toggle whether the reload command should be enabled or not
+    RELOAD-COMMAND-ENABLED: true
+    
+    # Toggle whether the day command should be enabled or not
+    DAY-COMMAND-ENABLED: true
+    
+    # Toggle whether the night command should be enabled or not
+    NIGHT-COMMAND-ENABLED: true
+    
+    # This overrides our plugin command with the default paper plugin command.
+    DEFAULT-PLUGIN-COMMAND: false
+  LOCALE:
+    
+    # Should we show IPs of players in the console when the connect?
+    SHOW-PLAYER-IPS-CONSOLE: false
+    
+    # This is the kick message for our packet throttle system in security category
+    PACKET-THROTTLE-MESSAGE: "[Carbon] Kicked for Spamming Packets"
+    
+    # You can change carbon's theme color here (Use Bukkit ChatColors here!)
+    CARBON-THEME: "RED"
+    
+    # You can edit the self ping message here
+    PING-SELF-CMD-MESSAGE: "&fYour ping: &c%ping%"
+    
+    # You can edit the target ping message here
+    PING-TARGET-CMD-MESSAGE: "&f%player%'s ping: &c%ping%"
+    
+    # You can change carbon commands no permission message here.
+    NO-PERMISSION-MESSAGE: "&cI'm sorry, but you do not have permission to perform\
+      \ this command. Please contact the server administrators if you believe that\
+      \ this is in error."
+    
+    # You can edit the TPS message format here (All placeholders are used here)
+    TPS-MESSAGE-FORMAT:
+      - " "
+      - "&c&lServer Performance &7(%uptime% - %total_player_online% players)"
+      - " &fPerformance &7(Last 1s, 1m, 5m, 15m)&f: &a%current_tps%, %list_tps%"
+      - " &fMemory: &a%used_ram%mb &7(&7Used), &a%total_ram%mb&7(Allocated), &a%free_ram%mb&7(Free)"
+      - " &fChunks - Entities: &a%total_chunk_loaded% chunks, %total_entity% entities"
+      - " &fServer Performance Lag: &c%bar%"
+      - " &fPlayers Online: &c%total_player_online%/%max_slot%"
+      - " "
+    
+    # You can edit the version command message here, although I'd appreciate it if you didn't
+    VERSION-MESSAGE:
+      - " "
+      - "&c&lCarbon Info"
+      - ""
+      - " &fVersion: &cv<version>"
+      - " &fAuthor: &cDrizzy &7&o(Refine Development)"
+      - " &fDiscord: &chttps://dsc.gg/refine"
+      - " "
+  GAMEPLAY:
+    
+    # Should the player respawn instantly after dying?
+    # Plugins would need to set player's health to full on PlayerDeathEvent to work properly
+    # If you are using Via-Version for 1.9+ Compatibility
+    # You may want to disable the option 'use-new-deathmessages' in Via-Version config.yml
+    # Since that option added death screen manually, disabling it will fix the problem
+    INSTANT-RESPAWN: false
+    
+    # Fixes a calculation bug where MathHelper#floor was being used for an entity's placement (Credits: JT - PvPLand Developer)
+    RELATIVE-MOVE-FIX: true
+    
+    # This completely disables the lineOfSight method and uses direct vanilla server-side reach of 36.0D.
+    # If this is enabled then alternate-hit-detection won't do anything.
+    DYNAMIC-HIT-REGISTRY: false
+    
+    # Improve the hit detection by increasing server-side reach
+    ALTERNATE-HIT-DETECTION: true
+    
+    # This fixes the armor damage to be less
+    FIX-ARMOR-DAMAGE: true
+    
+    # This fixes the enchantment knockback on Detailed/Expert
+    FIX-CARBON-ENCHANT-KB: true
+    
+    # This issues comes from disable 'keep-spawn-in-memory' for a certain world.
+    # If you want to keep it disabled and have arrows still work, then enable this.
+    FIX-ARROW-BOUNCE-GLITCH: false
+    
+    # Fixes invisibility potion and name tags
+    FIX-INVISIBILITY-PATCH: true
+    
+    # Change pick up delay value (TICKS)
+    PICKUP-DELAY: 40
+    
+    # Change the critical damage multiplier
+    CRITICAL-DAMAGE-MULTIPLIER: 1.5
+    
+    # Toggle fall damage knockback
+    FALL-DAMAGE-KNOCKBACK: false
+    
+    # Whether to enable the eat while running fix
+    FIX-EAT-WHILE-RUNNING: true
+    
+    # Fixes sand falling not loading chunks
+    FIX-SAND-CHUNK-LOADING: true
+    
+    # Whether to enable the block hit glitch fix
+    FIX-BLOCK-HIT-GLITCH: true
+    
+    # Allow hitting the vehicle when hit-boxes collide OR the player to hit others if they are being ridden by something
+    BETTER-VEHICLE-HIT-BOXES: true
+    
+    # Should we obfuscate health packets to other clients?
+    # This prevents other players from knowing what health you are on by using DamageIndicators.
+    OBFUSCATE-HEALTH-PACKET: true
+    
+    # Should we obfuscate armor packets to other clients?
+    # This prevents other players from knowing what armor durability you are on by using Armor Mods.
+    OBFUSCATE-ARMOR-PACKET: true
+    
+    # Faster redstone implementation (see: https://www.spigotmc.org/resources/pandawire-1-8-8-1-15-2.41991/)
+    # It can have big impact on server performance, but also it can break a lot of mechanics.
+    PANDA-WIRE-REDSTONE: false
+    
+    # Should explosions harm the player?.
+    EXPLOSION-DAMAGES-PLAYER: true
+    
+    # Stops checking collision for Items
+    OPTIMIZE-ITEM-ENTITIES: true
+    
+    # Stops checking collision for ArmorStands
+    OPTIMIZE-ARMOR-STAND-ENTITIES: true
+    
+    # Stops checking collision for FallingBlocks
+    OPTIMIZE-FALLING-BLOCK-ENTITIES: true
+    
+    # Caps max collisions per entity to Spigot Config's limit
+    OPTIMIZE-ENTITY-COLLISIONS: false
+  WORLD:
+    
+    # Toggle lava turning to cobble stone
+    GENERATE-COBBLESTONE: false
+    
+    # Toggle lava turning to obsidian
+    GENERATE-OBSIDIAN: false
+    
+    # Toggle lava turning to stone
+    GENERATE-STONE: false
+    
+    # Toggle water destroying redstone
+    WATER-DESTROYS-REDSTONE: false
+    
+    # Should pistons push entities?
+    PISTON-ENTITY-PUSH: true
+    
+    # Should blocks be ticked and updated?
+    # Practice servers won't really blocks to have physics or be ticked so they can turn it off
+    DO-BLOCK-OPERATIONS: true
+    
+    # Toggle whether infinite water sources should be allowed or not
+    INFINITE-WATER-SOURCES: true
+    
+    # Force all worlds to generate with a void-world generator (Credits: Original VoidWorld Plugin)
+    FORCE-VOID-WORLD: false
+    
+    # Toggle whether leaves should decay or not
+    SHOULD-LEAVES-DECAY: false
+    
+    # Prevents entities from moving in unloaded chunks
+    PREVENT-UNLOADED-CHUNK-MOVEMENT: true
+    
+    # Toggles player damage outside of border check every tick
+    BORDER-DAMAGE-CHECK: false
+  EVENTS:
+    
+    # If you don't have any listener for this, turn this off, helps with performance
+    PLAYER-MOVE-EVENT: true
+    
+    # Toggles the PlayerArmAnimationEvent. This can significantly reduce hit detection delay
+    ARM-ANIMATION-EVENT: true
+  NETWORK:
+    
+    # Handles Keep Alive frequency and packets with own system and smoothens out PvP (Can break some bad Anti-Cheats)
+    OPTIMIZED-KEEP-ALIVE: false
+    
+    # Toggle whether you get kicked for spamming chat or not (Vanilla Only!)
+    KICK-FOR-SPAM: true
+    
+    # This will only let arm swings be registered every 10 ticks (Credits: JT - PvPLand Developer)
+    OPTIMIZE-ARM-SWINGS: false
+    
+    # Should bukkit check for rogue arm swings, disabling this improves hit detection but also makes hacking easier
+    CHECK-ROGUE-ARM-SWINGS: true
+    
+    # This forces EntityPlayers to use original yaw-pitch variables in Entity class
+    OPTIMIZED-YAW-PITCH-TRACKING: true
+    
+    # This makes the EntityTrackerEntry skip any movement packets with movement values as 0 (Credits: Purpler)
+    SKIP-USELESS-PACKETS: false
+  SECURITY:
+    
+    # Scans all the plugins to check for host-flow malware and alerts in console if it finds it
+    CHECK-FOR-MALWARE: true
+    # Patches the exploit of overloading the ChatComponent to crash servers
+    CHAT-COMPONENT:
+      
+      # The default amount is 96 iterations, increase if chat component break in plugins, 128 is a recommended value if you get issues.
+      ITERATION-LIMIT: 96
+      
+      # Max amount of text in one text element.
+      TEXT-LIMIT: 512
+    BOOK:
+      
+      # Set the max book title size
+      MAX-TITLE-SIZE: 128
+      
+      # Set the max book author name size
+      MAX-AUTHOR-SIZE: 32
+    PACKET:
+      
+      # Toggle Carbon's built-in packet throttling system
+      THROTTLE-SYSTEM: false
+      
+      # Set the packet throttle value (Max Packets per second)
+      MAX-SIZE: 2048
+  EVENT-BUS-OPTIMIZATIONS:
+    
+    # Toggle Carbon's custom EventBus optimization, works with Java 8-17 to improve the performance of Bukkit Events.
+    ENABLED: true
+    
+    # Uses a different reflection validation method, breaks FAWE and some other plugins.
+    ALTERNATE-INSTANCE-CHECK: false
+  REGION-FILE:
+    
+    # Improves performance of chunks in specific situations.
+    # Can improve or reduce performance depending on your situation.
+    # May also cause issues on chunk deletion. Should be used with a high maxSize or in situations where chunks are frequently loaded/unloaded.
+    OPTIMIZED-FILE-ENABLED: false
+    
+    # Switches from Mojang's memory optimized cache to a performance-optimized cache. 
+    # May result in minorly higher memory usage.
+    OPTIMIZED-CACHE-ENABLED: false
+    
+    # Max amount of cached region file objects.
+    OPTIMIZED-CACHE-MAX-SIZE: 512
+    
+    # Delay to remove entries after last reference.
+    # Modified max-size mechanics still exist as well as this.
+    OPTIMIZED-CACHE-EXPIRY-TIME: 600000
+  PEARLS:
+    
+    # Should the pearls deal damage upon landing to the shooter?
+    DAMAGE-ENABLED: false
+    
+    # This option improves yaw-calculation by teleporting the shooter to target's Y level
+    BETTER-YAW: true
+    
+    # Toggle the wall glitch fix, this will break mmc pearls though
+    WALL-GLITCH-FIX: false
+    
+    # Would you like pearls to have a smaller hitbox?
+    SMALLER-HITBOX: false
+    
+    # The speed multiplier of an enderpearl
+    PEARL-SPEED: 1.5
+    
+    # The gravity (y-axis subtraction) value of an enderpearl
+    PEARL-GRAVITY: 0.03
+    
+    # The vertical-offset value of an enderpearl
+    PEARL-VERTICAL-OFFSET: 0.0
+    # Configure the pass-through settings of pearls
+    TALIBAN-PEARLS:
+      
+      # Should the pearl pass-through a tripwire?
+      TRIPWIRE: true
+      
+      # Should the pearl pass-through a slab?
+      SLAB: false
+      
+      # Should the pearl pass-through a bed?
+      BED: true
+      
+      # Should the pearl pass-through an open fence-gate?
+      FENCE-GATE: true
+      
+      # Should the pearl pass-through a cobweb?
+      COBWEB: true
+  POTIONS:
+    
+    # Make the potions hit the shooter instantly, instead of around the shooter
+    SMOOTH-POTIONS: true
+    
+    # Splash the potion inside shooter after 4 ticks of living if it's in range of the player
+    # This option does not work in accordance with Smooth-Potions option. You can only enable one at a time.
+    REDUCED-SPLASH: false
+    
+    # The amount of ticks in air of a splash potion
+    AIR-TICKS: 3
+    
+    # The speed multiplier of a splash potion
+    POTION-SPEED: 0.593
+    
+    # The gravity (y-axis subtraction) value of a splash potion
+    POTION-GRAVITY: 0.05
+    
+    # The vertical-offset value of a splash potion
+    POTION-VERTICAL-OFFSET: -20.0
+  CHUNK:
+    
+    # Should we allow Bukkit to unload chunks that aren't used?
+    UNLOAD-CHUNKS: true
+    
+    # Should we use Bukkit's Unload Queue?
+    BUKKIT-UNLOAD-QUEUE: true
+    
+    # The amount of threads used by ChunkIOExecutor
+    CHUNK-THREAD: 2
+    
+    # The amount of players handled per thread of ChunkIOExecutor
+    PLAYERS-PER-THREAD: 50
+    ASYNC:
+      
+      # Whether to use modern Async Chunk System (Backported from Paper 1.13.2).
+      # This system support not only Async Chunk Loading, but also Async Chunk Generation!
+      ENABLED: false
+      
+      # The amount of threads to use for chunk loading.
+      # If values is -1, it will be set to recommended value (amount of cores).
+      LOAD-THREADS: -1
+      
+      # Whether to use load executor per world or one shared executor.
+      LOAD-EXECUTOR-PER-WORLD: false
+      
+      # Whether to generate chunks asynchronously (1 thread per world).
+      ASYNC-GENERATION: false
+      
+      # Whether to use gen executor per world or one shared executor.
+      GEN-EXECUTOR-PER-WORLD: false
+      
+      # Whether to load (or generate if possible) spawn chunks asynchronously.
+      # It can speed up server start by a lot, but also can cause some issues like player can appear under the map on early join.
+      # This should stop chunk loading from blocking your main thread, even on load, recommended for multi-arena mini-games.
+      SPAWN-CHUNKS-ASYNC: false
+  ENTITY-TRACKER:
+    
+    # Whether to use asynchronous entity tracking.
+    # Enabling this could be good idea since it can have good impact on performance.
+    # Disable if it doesn't work properly (for eg. anti-cheat plugin)
+    ENABLE: false
+    
+    # Don't block the thread while loading a player's chunks.
+    # Enabling this could cause issues.
+    NON-BLOCKING-CHUNKS: false
+    
+    # Use fixed tracking range of 128 blocks, this can cause delays in players re-appearing.
+    USE-OPTIMIZED-TRACKING-RANGE: true
+    
+    # How many threads to use for entity tracking.
+    THREADS: 4
+    # How often (in ticks) should entity tracker update if entity is visible/hidden for players.
+    # Bigger values can have good impact on performance, but it can take longer for entity to show/hide.
+    # These values can be much lower with async tracking enabled
+    ADD-REMOVE-RATE:
+      PLAYERS-ASYNC: 5
+      PROJECTILES-ASYNC: 10
+      ANIMALS-ASYNC: 10
+      MONSTERS-ASYNC: 10
+      OTHERS-ASYNC: 10
+      PLAYERS-NORMAL: 40
+      ANIMALS-NORMAL: 40
+      PROJECTILES-NORMAL: 40
+      MONSTERS-NORMAL: 40
+      OTHERS-NORMAL: 40
+  TNT-CANNONING:
+    
+    # Removes block placing cooldown delay
+    OPTIMIZE-PRINTER: true
+    
+    # Use a specially optimized tracker entry for cannoning entities (Credits: IonSpigot/Samuik)
+    OPTIMIZED-CANNONING-TRACKER: false
+    
+    # Should we display the explosion to the player?
+    SHOW-EXPLOSION: true
+    
+    # Should we use reduced density rays for Explosions?
+    REDUCED-DENSITY-RAYS: false
+    
+    # Fixes east/west cannoning by calculating the z movement before x if the x velocity is greater
+    FIX-EAST-WEST-CANNONING: true
+    
+    # Does an axis by axis scan if the entity is travelling a large area
+    OPTIMIZE-TNT-MOVEMENT: false
+    
+    # Should we hide the tnt from being displayed to the player?
+    HIDE-TNT: false
+    
+    # Should we merge TNTs?
+    MERGE-TNT: false
+    
+    # Should we hide the sand from being displayed to the player?
+    HIDE-SAND: false
+    
+    # Should we merge sand blocks?
+    MERGE-SAND: false
+    
+    # Should we show TNT Particles?
+    SHOW-PARTICLES: true
+    
+    # Should we make the TNT calculations faster?
+    FASTER: true
+    
+    # Should we use unsafe entity tracking for TNT? This significantly improved the speed of dispensers.
+    UNSAFE: true
+    
+    # Should explosion radius be static/constant?
+    CONSTANT-RADIUS: false
+    
+    # Toggle TNT Water velocity & movement
+    WATER-LOGIC: false
+    
+    # Should we make tnt explosion sound?
+    EXPLODE-SOUND: true
+    
+    # Should we make tnt launch sound?
+    LAUNCH-SOUND: true
+    
+    # Patches left-shooting accuracy in Cannons (Credits: FluxSpigot)
+    FIX-LEFT-SHOOTING-CANNON: false
+    
+    # Set accuracy level of left-shooting (Credits: FluxSpigot)
+    LEFT-SHOOTING-ACCURACY: 20.0
+  ENTITY:
+    
+    # Should mobs be able to move and use pathfinding?
+    MOB-AI: true
+    
+    # Should Entity Collisions be enabled?
+    ENTITY-COLLISIONS: true
+    
+    # Should mobs make sounds?
+    MOB-SOUNDS: true
+  SPAWNER:
+    
+    # Specify the spawner's spawning radius
+    SPAWN-RADIUS: 4
+    
+    # Does the spawner need players nearby to spawn entities?
+    NEED-PLAYERS-NEARBY: true
+    
+    # How close the player should be in order for entities to spawn?
+    PLAYER-RANGE: 10
+    
+    # Minimum delay time for spawner to spawn entities
+    MIN-SPAWN-DELAY: 200
+    
+    # Maximum delay time for spawner to spawn entities
+    MAX-SPAWN-DELAY: 600
+    
+    # Configure spawner's spawning count
+    SPAWN-COUNT: 4
+    
+    # Max amount of entities allowed near spawner
+    MAX-NEARBY-ENTITIES: 6
+    
+    # The tick rate of the spawner
+    TICK-RATE: 1
+    
+    # Should we display spawner particles?
+    PARTICLES: false
+  LOG-FILTER:
+    
+    # Toggle Carbon's custom built-in log filter
+    ENABLED: true
+    
+    # Here you can put a list of words or strings that will be looked for and will have their whole message skipped
+    FILTER-LIST:
+      - "[WorldEdit] WorldEdit has detected you are using Java 7 "
+      - "[WorldEdit] WorldEdit will stop supporting Java less than version 8"
+  RESOURCE-PACK-SYSTEM:
+    
+    # Toggle Carbon's custom client-version based resource pack system
+    ENABLED: false
+    
+    # Should we kick players if they deny applying the resource pack?
+    KICK-ON-DENY: false
+    
+    # Should we kick players if their resource pack fails to apply?
+    KICK-ON-FAIL: false
+    
+    # Edit the kick message for the resource pack system
+    KICK-MESSAGE: "&cThis server requires you to load the resource pack!\n&ePlease\
+      \ re-log and try again!"
+    
+    # Here you can put a list of resource packs like so 'protocol:resourcePackURL:hash' 
+    # DO NOT PUT 'https://' in the link, its automatically added!
+    PACK-LIST: []

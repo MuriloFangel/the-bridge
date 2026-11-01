@@ -1,0 +1,34 @@
+# # options.debug: must the debug output be printed?
+# # options.difficulty: what is the server diffeculty?
+# # options.locale: what set of lang files must be used, supported: en_US, nl_NL, de_DE, it_IT
+# # spawnGroup: used to set withs worlds have what spawn, difficult to use. see official site for details
+options:
+  debug: false
+  difficulty: NORMAL
+  usecreativemode: false
+  usecreativemodeinv: true
+  blockEnderChestInCrea: false
+  useEndPortalHandler: false
+  useportalhandler: false
+  useWorldSpawnHandler: false
+  useWorldChatSeperator: false
+  craftbukkitHooks: true
+worlds:
+  Urban:
+    seed: 4221911140893522279
+    worldgen: Empty
+    options: ''
+    difficulty: NORMAL
+    autoload: true
+  defaultworld:
+    seed: -1980688037187178390
+    worldgen: Normal
+    options: ''
+    difficulty: EASY
+    autoload: true
+  world:
+    seed: -2887229008106931994
+    worldgen: Empty
+    options: ''
+    difficulty: NORMAL
+    autoload: true

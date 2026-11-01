@@ -1,0 +1,172 @@
+# ================================================================
+# THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
+# CarbonSpigot 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3
+# ================================================================
+
+import:
+    org.bukkit.Bukkit
+    org.bukkit.scoreboard.DisplaySlot
+    org.bukkit.scoreboard.Objective
+    org.bukkit.scoreboard.Scoreboard
+
+# ---------------------------------------------------------
+# HELPERS DE BARRA DE GOLS E FORMATAÇÃO DE TEMPO
+# ---------------------------------------------------------
+function bridge_getGoalBar(score: integer, maxGoals: integer, colorCode: text) :: text:
+    set {_res} to ""
+    if {_maxGoals} <= 0:
+        set {_maxGoals} to 5
+    loop {_maxGoals} times:
+        if loop-value <= {_score}:
+            set {_res} to "%{_res}%%{_colorCode}%⬛"
+        else:
+            set {_res} to "%{_res}%&7⬛"
+    return {_res}
+
+function bridge_formatTime(seconds: number) :: text:
+    set {_sec} to floor({_seconds})
+    if {_sec} <= 0:
+        return "00:00"
+    
+    set {_m} to floor({_sec} / 60)
+    set {_s} to {_sec} - ({_m} * 60)
+    
+    set {_mStr} to "%{_m}%"
+    set {_sStr} to "%{_s}%"
+    
+    if {_m} < 10:
+        set {_mStr} to "0%{_m}%"
+    if {_s} < 10:
+        set {_sStr} to "0%{_s}%"
+        
+    return "%{_mStr}%:%{_sStr}%"
+
+# ---------------------------------------------------------
+# LOOP PRINCIPAL DE ATUALIZAÇÃO DA SCOREBOARD
+# ---------------------------------------------------------
+every 1 second:
+    loop all players:
+        bridge_updateScoreboard(loop-player)
+
+function bridge_updateScoreboard(p: player):
+    set {_u} to {_p}'s uuid
+    set {_state} to {bridge::player::%{_u}%::state}
+
+    set {_sb} to {_p}.getScoreboard()
+    if {_sb} is Bukkit.getScoreboardManager().getMainScoreboard():
+        set {_sb} to Bukkit.getScoreboardManager().getNewScoreboard()
+        {_p}.setScoreboard({_sb})
+
+    set {_obj} to {_sb}.getObjective("bridge")
+    if {_obj} is not null:
+        {_obj}.unregister()
+    
+    set {_obj} to {_sb}.registerNewObjective("bridge", "dummy")
+    {_obj}.setDisplaySlot(DisplaySlot.SIDEBAR)
+    {_obj}.setDisplayName(colored "&e&lTHE BRIDGE")
+
+    # 1. SCOREBOARD DO LOBBY
+    if {_state} is not set:
+        set {_wins} to bridge_getStat({_p}, "wins")
+        set {_goals} to bridge_getStat({_p}, "goals")
+        set {_kills} to bridge_getStat({_p}, "kills")
+
+        set {_onlineCount} to size of all players
+        set {_inGameCount} to 0
+        loop all players:
+            if {bridge::player::%loop-player's uuid%::state} is "INGAME":
+                add 1 to {_inGameCount}
+
+        bridge_setScoreLine({_obj}, "&7%now%", 9)
+        bridge_setScoreLine({_obj}, "&1", 8)
+        bridge_setScoreLine({_obj}, "&fVitórias: &a%{_wins}%", 7)
+        bridge_setScoreLine({_obj}, "&fGols: &e%{_goals}%", 6)
+        bridge_setScoreLine({_obj}, "&fKills: &a%{_kills}%", 5)
+        bridge_setScoreLine({_obj}, "&2", 4)
+        bridge_setScoreLine({_obj}, "&fOnline: &a%{_onlineCount}%", 3)
+        bridge_setScoreLine({_obj}, "&fEm Partida: &e%{_inGameCount}%", 2)
+        bridge_setScoreLine({_obj}, "&3", 1)
+        bridge_setScoreLine({_obj}, "&emc.seuservidor.com", 0)
+        stop
+
+    # 2. SCOREBOARD DA FILA
+    if {_state} is "QUEUE":
+        set {_arena} to {bridge::player::%{_u}%::queue_arena}
+        bridge_setScoreLine({_obj}, "&7Procurando partida...", 6)
+        bridge_setScoreLine({_obj}, "&1", 5)
+        bridge_setScoreLine({_obj}, "&fMapa: &a%{_arena}%", 4)
+        bridge_setScoreLine({_obj}, "&fModo: &e1v1", 3)
+        bridge_setScoreLine({_obj}, "&2", 2)
+        bridge_setScoreLine({_obj}, "&emc.seuservidor.com", 1)
+        stop
+
+    # 3. SCOREBOARD EM PARTIDA
+    if {_state} is "INGAME":
+        set {_inst} to {bridge::player::%{_u}%::instance}
+        set {_arena} to {bridge::instance::%{_inst}%::arena}
+
+        set {_cData1} to {bridge::arena::%{_arena}%::team::1::color}
+        set {_cData2} to {bridge::arena::%{_arena}%::team::2::color}
+        set {_tCode1} to bridge_getTeamColorCode({_cData1})
+        set {_tCode2} to bridge_getTeamColorCode({_cData2})
+
+        set {_t1Size} to size of {bridge::instance::%{_inst}%::team::1::players::*}
+        set {_t2Size} to size of {bridge::instance::%{_inst}%::team::2::players::*}
+
+        set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+        set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+        if {_s1} is not set:
+            set {_s1} to 0
+        if {_s2} is not set:
+            set {_s2} to 0
+        
+        set {_maxGols} to {bridge::arena::%{_arena}%::gols}
+        if {_maxGols} is not set:
+            set {_maxGols} to 5
+
+        set {_bar1} to "%bridge_getGoalBar({_s1}, {_maxGols}, {_tCode1})%&r"
+        set {_bar2} to "%bridge_getGoalBar({_s2}, {_maxGols}, {_tCode2})%&f"
+
+        set {_isVoting} to {bridge::instance::%{_inst}%::voting::active}
+        set {_inPause} to {bridge::instance::%{_inst}%::in_pause}
+        set {_isFrozen} to {bridge::instance::%{_inst}%::frozen}
+        
+        if {_isVoting} is true:
+            set {_vType} to {bridge::instance::%{_inst}%::voting::type}
+            set {_timeStr} to "&eVOTAÇÃO (%{_vType}%&e)"
+        else if {_inPause} is true:
+            set {_timeStr} to "&ePAUSADO"
+        else if {_isFrozen} is true:
+            set {_timeStr} to "&cDESCONECTADO"
+        else:
+            set {_remTime} to {bridge::instance::%{_inst}%::time_remaining}
+            if {_remTime} is not set:
+                set {_remTime} to 900
+            set {_timeStr} to bridge_formatTime({_remTime})
+
+        set {_pKills} to {bridge::player::%{_u}%::match_kills}
+        if {_pKills} is not set:
+            set {_pKills} to 0
+        
+        set {_pGoals} to {bridge::player::%{_u}%::match_goals}
+        if {_pGoals} is not set:
+            set {_pGoals} to 0
+
+        bridge_setScoreLine({_obj}, "&fInstância: &7%{_inst}%", 13)
+        bridge_setScoreLine({_obj}, "&1", 12)
+        bridge_setScoreLine({_obj}, "&fPartida: %{_tCode1}%%{_t1Size}%&7v%{_tCode2}%%{_t2Size}%", 11)
+        bridge_setScoreLine({_obj}, "&2", 10)
+        bridge_setScoreLine({_obj}, "&fTempo: &e%{_timeStr}%", 9)
+        bridge_setScoreLine({_obj}, "&3", 8)
+        bridge_setScoreLine({_obj}, "%{_bar1}%", 7)
+        bridge_setScoreLine({_obj}, "%{_bar2}%", 6)
+        bridge_setScoreLine({_obj}, "&4", 5)
+        bridge_setScoreLine({_obj}, "&fMapa: &a%{_arena}%", 4)
+        bridge_setScoreLine({_obj}, "&fKills: &a%{_pKills}%", 3)
+        bridge_setScoreLine({_obj}, "&fPontos: &e%{_pGoals}%", 2)
+        bridge_setScoreLine({_obj}, "&5", 1)
+        bridge_setScoreLine({_obj}, "&emc.seuservidor.com", 0)
+
+function bridge_setScoreLine(obj: object, text: text, score: integer):
+    set {_scoreObj} to {_obj}.getScore(colored {_text})
+    {_scoreObj}.setScore({_score})

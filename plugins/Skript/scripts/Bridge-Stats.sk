@@ -1,0 +1,76 @@
+# ================================================================
+# THE BRIDGE - ESTATÍSTICAS E FEEDBACK DE COMBATE (ETAPA 2.1)
+# ================================================================
+
+import:
+    org.bukkit.Sound
+
+# ---------------------------------------------------------
+# FUNÇÕES DE REGISTRO DE STATS
+# ---------------------------------------------------------
+function bridge_addStat(p: player, stat: text, amount: integer = 1):
+    set {_u} to {_p}'s uuid
+    if {bridge::stats::%{_u}%::%{_stat}%} is not set:
+        set {bridge::stats::%{_u}%::%{_stat}%} to 0
+    add {_amount} to {bridge::stats::%{_u}%::%{_stat}%}
+
+function bridge_getStat(p: player, stat: text) :: integer:
+    set {_u} to {_p}'s uuid
+    if {bridge::stats::%{_u}%::%{_stat}%} is not set:
+        return 0
+    return {bridge::stats::%{_u}%::%{_stat}%}
+
+# ---------------------------------------------------------
+# COMANDO /STATS
+# ---------------------------------------------------------
+command /stats [<offline player>]:
+    aliases: /status, /perfil
+    trigger:
+        set {_target} to arg-1
+        if {_target} is not set:
+            set {_target} to player
+
+        set {_u} to {_target}'s uuid
+        set {_v} to bridge_getStat({_target}, "wins")
+        set {_d} to bridge_getStat({_target}, "losses")
+        set {_k} to bridge_getStat({_target}, "kills")
+        set {_m} to bridge_getStat({_target}, "deaths")
+        set {_g} to bridge_getStat({_target}, "goals")
+        set {_p} to bridge_getStat({_target}, "games")
+
+        # Cálculo de KDR
+        set {_kdr} to 0.0
+        if {_m} > 0:
+            set {_kdr} to {_k} / {_m}
+        else if {_k} > 0:
+            set {_kdr} to {_k}
+
+        send "&e&l====================================" to player
+        send " &fEstatísticas de &a%name of {_target}%" to player
+        send "" to player
+        send " &fVitórias: &a%{_v}% &7| &fDerrotas: &c%{_d}%" to player
+        send " &fGols Marcados: &e%{_g}%" to player
+        send " &fKills: &a%{_k}% &7| &fMortes: &c%{_m}% &7(KDR: &e%{_kdr}%&7)" to player
+        send " &fPartidas Jogadas: &b%{_p}%" to player
+        send "&e&l====================================" to player
+
+# ---------------------------------------------------------
+# FEEDBACK DE ARCO E FLECHA (ACTIONBAR + CHAT + SOM)
+# ---------------------------------------------------------
+on damage:
+    if victim is player:
+        if attacker is player:
+            if damage cause is projectile:
+                if {bridge::player::%attacker's uuid%::state} is "INGAME":
+                    set {_hp} to (victim's health - damage)
+                    if {_hp} < 0:
+                        set {_hp} to 0
+                    set {_hpFormated} to floor({_hp} * 10) / 10
+                    set {_vNameFormatted} to bridge_getFormattedPlayerName(victim)
+                    
+                    # Envio no ActionBar e Chat do Atacante (SEM título grande na tela)
+                    bridge_sendActionBar(attacker, "&c%{_vNameFormatted}% &7está com &c%{_hpFormated}% ❤")
+                    send "%{bridge::config::prefix}% %{_vNameFormatted}% &7está com &c%{_hpFormated}% &c❤" to attacker
+                    
+                    # Som de Acerto de Flecha (Pling agudo)
+                    attacker.playSound(attacker.getLocation(), Sound.ORB_PICKUP, 1.0, 0.5)

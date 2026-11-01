@@ -1,0 +1,25 @@
+
+
+# BEGIN bridge-github-sync: nomes sensiveis e temporarios comuns
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+credentials*
+secret.*
+secrets.*
+*.tmp
+*.swp
+*.log
+.DS_Store
+Thumbs.db
+# END bridge-github-sync
+
+# Arquivos locais retirados da publicacao apos revisao
+/server.properties
+/.console_history
+/logs/
