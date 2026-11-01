@@ -304,3 +304,9 @@ O script desta pasta envia arquivos permitidos para origin/main depois de uma ja
 No fluxo normal, a IA entrega os arquivos e o administrador salva localmente; o PC envia. Se alguém alterar diretamente no GitHub, parar sincronizador e reconciliar manualmente antes de retomar.
 
 Atualize decisões e estado quando mudar gameplay. O sincronizador não escreve relatórios nem deduz testes. Registre o commit que foi efetivamente testado. Um chat novo precisa ler estes documentos; o README não cria acesso a ferramentas nem monitoramento entre mensagens.
+
+<!-- BEGIN THE-BRIDGE TEXT-SYNC NOTICE -->
+## Politica atual — sincronizacao textual
+
+Leia [SINCRONIZACAO-TEXTO.md](SINCRONIZACAO-TEXTO.md). Esta secao substitui instrucoes anteriores de enviar a pasta inteira: somente codigo, configuracoes textuais permitidas, exemplos e documentacao entram nos novos commits. Mundos, JARs, bancos, logs e dados de jogadores continuam locais. server.properties real fica fora; consulte o exemplo sem senha. Os arquivos do primeiro commit continuam no HISTORICO: esta migracao nao o reescreveu. CSV runtime nao substitui exportacao revisada de arenas. Sync nao significa reload ou teste. A distribuicao final com downloads verificados e caminhos relativos sera uma etapa separada. As regras de gameplay acima nao foram alteradas.
+<!-- END THE-BRIDGE TEXT-SYNC NOTICE -->

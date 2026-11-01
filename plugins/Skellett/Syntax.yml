@@ -17,16 +17,13 @@ Main:
   - '[skellett] [the] image (of|from) [the] file [(location|path)] %string%'
   - world of map %map%
   - map %map%'s world
-  - draw [buffered] image %mapimage% [at [coordinate[s]] [x] %number%(,| and) [y]
-    %number%] on [skellett] map %map%
+  - draw [buffered] image %mapimage% [at [coordinate[s]] [x] %number%(,| and) [y] %number%] on [skellett] map %map%
   - map (scale|size) of %map%
   - map %map%'s (scale|size)
   - (scale|size) of map %map%
-  - draw [map] cursor %string% pointing %number% at [coordinate[s]] [x] %number%(,|
-    and) [y] %number% on [skellett] map %map%
+  - draw [map] cursor %string% pointing %number% at [coordinate[s]] [x] %number%(,| and) [y] %number% on [skellett] map %map%
   - (erase|clear|remove|delete|unregister) [skellett] map %map%
-  - (manage|override|overwrite|create) [skellett] map %map% [[and] [with] override
-    %-boolean%]
+  - (manage|override|overwrite|create) [skellett] map %map% [[and] [with] override %-boolean%]
   - '[map] %map% (1¦is|2¦is(n''t| not)) being handled [by skellett]'
   - '[skellett] map cursor type (of|for) [[map][ ]cursor] %mapcursor%'
   - (show|send|display) [skellett] [custom] map %map% to %players%
@@ -34,8 +31,7 @@ Main:
   - '[skellett] [(the|all)] [of] [the] map cursors (in|on|for) [skellett] [map] %map%'
   - '[skellett] map cursor visibl(e|ity) [state] (of|for) [[map][ ]cursor] %mapcursor%'
   - '[skellett] [a] new map[[ ]view] (for|from|with) [world] %world%'
-  - draw text %string% at [coordinate[s]] [x] %number%(,| and) [y] %number% on [skellett]
-    map %map%
+  - draw text %string% at [coordinate[s]] [x] %number%(,| and) [y] %number% on [skellett] map %map%
   - '[skellett] map pixle [colo[u]r] at [coordinate[s]] [x] %number%(,| and) [y] %number%
     (on|in) [skellett] map %map%'
   - center (1¦x|2¦z)[( |-)][(position|coord[inate])] (of|from|in) [map] %map%
@@ -63,30 +59,25 @@ Main:
     %string%'
   - '[the] (stylish|style|simple) [score][ ][board] of %player%'
   - '%player%''s (stylish|style|simple) [score][ ][board]'
-  - (stylish|style|simple) [score][ ]board %string% (1¦(is set|[does] exist[s])|2¦(is(n't|
-    not) set|does(n't| not) exist[s]))
+  - (stylish|style|simple) [score][ ]board %string% (1¦(is set|[does] exist[s])|2¦(is(n't| not) set|does(n't| not) exist[s]))
   ChatComponent:
   - message text components %textcomponents% to %players%
-  - add hover event with action %hovereventaction% (and|with) [(value|text)] %string%
-    to [text component] %textcomponent%
+  - add hover event with action %hovereventaction% (and|with) [(value|text)] %string% to [text component] %textcomponent%
   - '[a] [new] text component [with [text]] %string%'
   - add text component[s] %textcomponents% to [book] %itemstack%
-  - add click event with action %clickeventaction% (and|with|to) [(execute|text|link)]
-    %string% to [text component] %textcomponent%
+  - add click event with action %clickeventaction% (and|with|to) [(execute|text|link)] %string% to [text component] %textcomponent%
   ReturnType:
   - '[(|skript|skellett)] [the] return (type[s]|value[s]) [(from|of|in)] [the] [expression]
     %object%'
   - '[(the|all)] [of] [the] [event] methods'
-  - (invoke|execute|run) method %string% [(from|of) [(expression|type|class)] %*-object%]
-    [with parameter[s] %-objects%]
+  - (invoke|execute|run) method %string% [(from|of) [(expression|type|class)] %*-object%] [with parameter[s] %-objects%]
   - '[(the|all)] [of] [the] methods (from|of|in) [the] [expression] %object%'
   - '[event] method %string% [is [a] loop[able] %-boolean%] [(from|of) [(expression|type|class)]
     %-object%] [with parameter[s] %-objects%]'
   Regenerator:
   - pos[ition][ ]2 of [skellett] regenerator [[with] id] %string%
   - re(generate|[ ]build) [the] [skellett] regenerator with ID %string%
-  - (create|make) [a] [new] [skellett] regenerator with ID %string% (from|within)
-    [location[s]] %location% (to|and) %location%
+  - (create|make) [a] [new] [skellett] regenerator with ID %string% (from|within) [location[s]] %location% (to|and) %location%
   - (delete|remove) [the] [skellett] regenerator with ID %string% [re[ ]build %-boolean%]
   - '[(the|all)] [of] [the] [skellett] regenerator[s] [ids]'
   - pos[ition][ ]1 of [skellett] regenerator [[with] id] %string%
@@ -100,14 +91,12 @@ Main:
   - '%itemstack%''s [book] author'
   - '[(the|all)] [of] [the] [book] pages [(from|of)] [book] %itemstack%'
   - add [a] page [with] [(text|data)] [%-string%] to [book] %itemstack%
-  - book %itemstack% (1¦(ha(s[n[']t]|ve)|contain[s])|2¦(do[es](n't| not) have| do[es](n't|
-    not) contain)) [had] [a] [book [meta]] title
+  - book %itemstack% (1¦(ha(s[n[']t]|ve)|contain[s])|2¦(do[es](n't| not) have| do[es](n't| not) contain)) [had] [a] [book [meta]] title
   - '[a] new [written] book'
   - open book %itemstack% to %player%
   - '[the] [book[''s]] title of %itemstack%'
   - '%itemstack%''s [book] title'
-  - book %itemstack% (1¦(ha(s[n[']t]|ve)|contain[s])|2¦(do[es](n't| not) have| do[es](n't|
-    not) contain)) [had] [an] [book [meta]] author
+  - book %itemstack% (1¦(ha(s[n[']t]|ve)|contain[s])|2¦(do[es](n't| not) have| do[es](n't| not) contain)) [had] [an] [book [meta]] author
   Shooting:
   - '[the] [skellett] [(event|get)] bow'
   - '[the] [skellett] [(event|get)] [the] shot (arrow|projectile)'
@@ -206,12 +195,8 @@ MaterialName:
 - '[the] [spigot] material [name] (from|of) %itemtype%'
 - '%itemtype%''s [spigot] material [name]'
 TitleAndSubtitle:
-- (send|show) [a] title [from] %string% [(with|and) [subtitle] %-string%] (to|for)
-  %players% for %timespan%(,| and| with) %timespan% [fade[ ]in](,| and| with) %timespan%
-  [fade[ ]out]
-- (send|show) %players% [a] title [(with|from)] %string% [(with|and) [subtitle] %-string%]
-  for %timespan%(,| and| with) %timespan% [fade[ ]in](,| and| with) %timespan% [fade[
-  ]out]
+- (send|show) [a] title [from] %string% [(with|and) [subtitle] %-string%] (to|for) %players% for %timespan%(,| and| with) %timespan% [fade[ ]in](,| and| with) %timespan% [fade[ ]out]
+- (send|show) %players% [a] title [(with|from)] %string% [(with|and) [subtitle] %-string%] for %timespan%(,| and| with) %timespan% [fade[ ]in](,| and| with) %timespan% [fade[ ]out]
 RemoveEffects:
 - (clear|remove) [all] [potion] effects (from|of) %players%
 - milk %players%
@@ -359,8 +344,7 @@ Whitelist:
 - '[set] white[ ]list [to] %boolean%'
 - reload [the] white[ ]list
 PlayerWindowProperty:
-- (set|change) %player%['s] (window|[current] inventory) property [of] %inventoryproperty%
-  to %number%
+- (set|change) %player%['s] (window|[current] inventory) property [of] %inventoryproperty% to %number%
 DataWatcher:
 - data watcher value %number% from %entity%
 - data watcher type (of|from) %*object%
@@ -393,8 +377,7 @@ CustomName:
 TeleportCause:
 - '[the] teleport cause'
 ScoreboardExists:
-- score[ ][board] %string% (1¦(is set|[does] exist[s])|2¦(is(n't| not) set|does(n't|
-  not) exist[s]))
+- score[ ][board] %string% (1¦(is set|[does] exist[s])|2¦(is(n't| not) set|does(n't| not) exist[s]))
 BabyAdult:
 - '[(make|set)] [entity] %entity% [to] [a[n]] (1¦baby|2¦adult)'
 SprintingState:
@@ -504,8 +487,7 @@ PistonSticky:
 ItemInSlots:
 - '[items (from|of|in)] slots %numbers% (from|of|in) %inventory%'
 BlockConstructor:
-- (create|start|make|build|construct) %string% with %itemtype% at %location% [[with
-  effect[s]] %-boolean%]
+- (create|start|make|build|construct) %string% with %itemtype% at %location% [[with effect[s]] %-boolean%]
 NextEmptySlot:
 - (next|first) empty slot of %inventory%
 PistonPower:

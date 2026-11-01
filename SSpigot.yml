@@ -1,0 +1,19 @@
+# This is the main configuration file for SSpigot.
+# Modify with caution, and make sure you know what you are doing.
+
+knockback:
+  current: Default
+  profiles: {}
+hide-players-from-tab: false
+fire-player-move-event: true
+fire-left-click-air: true
+fire-left-click-block: true
+entity-activation: false
+invalid-arm-animation-kick: false
+mob-ai: true
+1-8-enabled: false
+do-chunk-unload: true
+block-operations: false
+disable-join-message: false
+disable-leave-message: false
+disable-op: false

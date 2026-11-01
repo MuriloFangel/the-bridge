@@ -1,0 +1,1846 @@
+# ================================================================
+# THE BRIDGE - CORE / ETAPA A: PRESENÇA, RETORNAR E TRAVA DE PAUSA
+# CarbonSpigot 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3 / skRayFall
+# ================================================================
+
+import:
+    org.bukkit.Bukkit
+    org.bukkit.Material
+    org.bukkit.Color
+    org.bukkit.Sound
+    org.bukkit.entity.Arrow
+    org.bukkit.entity.Item
+    org.bukkit.inventory.ItemStack
+    org.bukkit.enchantments.Enchantment
+    org.bukkit.util.Vector
+
+# ---------------------------------------------------------
+# PRESENÇA EXPLÍCITA E DIREITO DE RETORNO (ETAPA A)
+# ---------------------------------------------------------
+function bridge_isPresent(p: player, inst: text) :: boolean:
+    if {_p} is not online:
+        return false
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is not "INGAME":
+        return false
+    if {bridge::player::%{_u}%::instance} is not {_inst}:
+        return false
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is not true:
+        return false
+    set {_sid} to {bridge::instance::%{_inst}%::match_id}
+    if {_sid} is not set:
+        set {_sid} to {bridge::instance::%{_inst}%::closing_id}
+    if {_sid} is not set:
+        return false
+    if {bridge::player::%{_u}%::match_id} is not {_sid}:
+        return false
+    return true
+
+function bridge_presentCount(inst: text, team: integer) :: integer:
+    set {_n} to 0
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_n}
+    return {_n}
+
+function bridge_absenceSufficient(inst: text) :: boolean:
+    loop 2 times:
+        set {_t} to loop-value
+        set {_init} to {bridge::instance::%{_inst}%::team::%{_t}%::initial_size}
+        if {_init} > 0:
+            set {_n} to bridge_presentCount({_inst}, {_t})
+            if ({_n} / {_init}) < 0.5:
+                return false
+    return true
+
+function bridge_offerReturn(p: player):
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::return::%{_u}%::instance}
+    set {_sid} to {bridge::return::%{_u}%::match_id}
+    if {_inst} is not set:
+        stop
+    if {_sid} is not set:
+        stop
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        delete {bridge::return::%{_u}%::*}
+        stop
+    send "%{bridge::config::prefix}% &eSua partida continua vinculada. Use &f/retornar &eou clique abaixo." to {_p}
+    execute console command "tellraw %{_p}% {""text"":""[RETORNAR À PARTIDA]"",""color"":""green"",""bold"":true,""clickEvent"":{""action"":""run_command"",""value"":""/retornar""}}"
+
+function bridge_leaveToLobby(p: player):
+    clear {_p}'s inventory
+    remove regeneration from {_p}
+    remove absorption from {_p}
+    set {_inv} to {_p}.getInventory()
+    {_inv}.setHelmet(null)
+    {_inv}.setChestplate(null)
+    {_inv}.setLeggings(null)
+    {_inv}.setBoots(null)
+    {_p}.setHealth(20.0)
+    {_p}.setFoodLevel(20)
+    {_p}.setFireTicks(0)
+    {_p}.setFallDistance(0.0)
+    set {_zero} to new Vector(0, 0, 0)
+    {_p}.setVelocity({_zero})
+    set {_p}'s gamemode to adventure
+    if {bridge::config::lobby} is set:
+        teleport {_p} to {bridge::config::lobby}
+
+function bridge_markAbsent(p: player):
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is not set:
+        stop
+    if {bridge::player::%{_u}%::state} is not "INGAME":
+        stop
+    set {_sid} to {bridge::instance::%{_inst}%::match_id}
+    if {_sid} is not set:
+        # Celebração/encerramento não abre uma nova espera de ausência.
+        set {bridge::instance::%{_inst}%::members::%{_u}%::present} to false
+        delete {bridge::player::%{_u}%::state}
+        stop
+    if {bridge::player::%{_u}%::match_id} is not {_sid}:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is not true:
+        stop
+    set {_team} to {bridge::player::%{_u}%::team}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::present} to false
+    set {bridge::instance::%{_inst}%::members::%{_u}%::match_kills} to {bridge::player::%{_u}%::match_kills}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::match_goals} to {bridge::player::%{_u}%::match_goals}
+    set {bridge::return::%{_u}%::instance} to {_inst}
+    set {bridge::return::%{_u}%::match_id} to {_sid}
+    delete {bridge::player::%{_u}%::*}
+    delete {-bridge::player::%{_u}%::last_attacker_name}
+    delete {-bridge::player::%{_u}%::last_attacker_time}
+    bridge_checkDisconnectState({_inst}, {_team}, name of {_p})
+
+function bridge_detachPrevious(p: player):
+    set {_u} to {_p}'s uuid
+    set {_oldInst} to {bridge::return::%{_u}%::instance}
+    set {_oldSid} to {bridge::return::%{_u}%::match_id}
+    if {_oldInst} is set:
+        if {bridge::instance::%{_oldInst}%::match_id} is {_oldSid}:
+            loop 2 times:
+                set {_t} to loop-value
+                loop {bridge::instance::%{_oldInst}%::team::%{_t}%::players::*}:
+                    set {_oldPlayer} to loop-value-2
+                    if {_oldPlayer}'s uuid is {_u}:
+                        remove loop-value-2 from {bridge::instance::%{_oldInst}%::team::%{_t}%::players::*}
+            set {bridge::instance::%{_oldInst}%::members::%{_u}%::present} to false
+            set {bridge::instance::%{_oldInst}%::members::%{_u}%::detached} to true
+    delete {bridge::return::%{_u}%::*}
+
+# ---------------------------------------------------------
+# HELPERS DE CORES, NOMES E MENSAGENS VISUAIS
+# ---------------------------------------------------------
+function bridge_getTeamColorCode(colorData: integer) :: text:
+    if {_colorData} is 11:
+        return "&9" # Azul
+    if {_colorData} is 14:
+        return "&c" # Vermelho
+    if {_colorData} is 5:
+        return "&a" # Verde
+    if {_colorData} is 4:
+        return "&e" # Amarelo
+    return "&7"
+
+function bridge_getTeamName(colorData: integer) :: text:
+    if {_colorData} is 11:
+        return "&9Time Azul"
+    if {_colorData} is 14:
+        return "&cTime Vermelho"
+    if {_colorData} is 5:
+        return "&aTime Verde"
+    if {_colorData} is 4:
+        return "&eTime Amarelo"
+    return "&7Time"
+
+function bridge_getFormattedPlayerName(p: player) :: text:
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is set:
+        set {_team} to {bridge::player::%{_u}%::team}
+        set {_arena} to {bridge::instance::%{_inst}%::arena}
+        set {_cData} to {bridge::arena::%{_arena}%::team::%{_team}%::color}
+        set {_code} to bridge_getTeamColorCode({_cData})
+        return "%{_code}%%name of {_p}%"
+    return "&f%name of {_p}%"
+
+function bridge_sendActionBar(p: player, msg: text):
+    if {_p} is online:
+        send action bar colored {_msg} to {_p}
+
+function bridge_coreTitle(p: player, titleText: text, subText: text, ticks: integer = 20):
+    if {_p} is online:
+        set {_t} to colored {_titleText}
+        set {_s} to colored {_subText}
+        {_p}.sendTitle({_t}, {_s})
+
+function bridge_corePling(p: player, pitchValue: number):
+    if {_p} is online:
+        set {_loc} to {_p}.getLocation()
+        {_p}.playSound({_loc}, Sound.NOTE_PLING, 1.0, {_pitchValue})
+
+# ---------------------------------------------------------
+# CONSTRUTOR E REMOVEDOR DE CAGES FÍSICAS
+# ---------------------------------------------------------
+function bridge_buildCage(center: location, colorData: integer, inst: text):
+    set {_w} to world of {_center}
+    set {_cx} to floor(x-coordinate of {_center})
+    set {_cy} to floor(y-coordinate of {_center})
+    set {_cz} to floor(z-coordinate of {_center})
+
+    loop 5 times:
+        set {_y} to ({_cy} - 1) + (loop-value-1 - 1)
+        loop 5 times:
+            set {_x} to ({_cx} - 2) + (loop-value-2 - 1)
+            loop 5 times:
+                set {_z} to ({_cz} - 2) + (loop-value-3 - 1)
+                
+                set {_isOuter} to false
+                if {_y} is ({_cy} - 1) or ({_cy} + 3):
+                    set {_isOuter} to true
+                if {_x} is ({_cx} - 2) or ({_cx} + 2):
+                    set {_isOuter} to true
+                if {_z} is ({_cz} - 2) or ({_cz} + 2):
+                    set {_isOuter} to true
+
+                if {_isOuter} is true:
+                    set {_loc} to location at {_x}, {_y}, {_z} in {_w}
+                    set {_b} to {_loc}.getBlock()
+                    if {_b}.getType().getId() is 0:
+                        {_b}.setType(Material.STAINED_GLASS)
+                        {_b}.setData({_colorData})
+                        add {_loc} to {bridge::instance::%{_inst}%::cage_blocks::*}
+
+function bridge_removeCage(inst: text):
+    loop {bridge::instance::%{_inst}%::cage_blocks::*}:
+        set block at loop-value to air
+    delete {bridge::instance::%{_inst}%::cage_blocks::*}
+
+# ---------------------------------------------------------
+# ARMADURA E KIT UNBREAKABLE
+# ---------------------------------------------------------
+function bridge_coreColor(d: integer) :: object:
+    if {_d} is 11:
+        return Color.fromRGB(30, 144, 255)
+    if {_d} is 14:
+        return Color.fromRGB(220, 20, 60)
+    if {_d} is 5:
+        return Color.fromRGB(50, 205, 50)
+    if {_d} is 4:
+        return Color.fromRGB(255, 215, 0)
+    return Color.fromRGB(220, 20, 60)
+
+function bridge_giveLeatherArmor(p: player, colorData: integer):
+    set {_color} to bridge_coreColor({_colorData})
+    set {_inv} to {_p}.getInventory()
+    {_inv}.setHelmet(null)
+
+    set {_chest} to new ItemStack(Material.LEATHER_CHESTPLATE, 1)
+    set {_metaC} to {_chest}.getItemMeta()
+    {_metaC}.setColor({_color})
+    {_metaC}.spigot().setUnbreakable(true)
+    {_chest}.setItemMeta({_metaC})
+    {_inv}.setChestplate({_chest})
+
+    set {_legs} to new ItemStack(Material.LEATHER_LEGGINGS, 1)
+    set {_metaL} to {_legs}.getItemMeta()
+    {_metaL}.setColor({_color})
+    {_metaL}.spigot().setUnbreakable(true)
+    {_legs}.setItemMeta({_metaL})
+    {_inv}.setLeggings({_legs})
+
+    set {_boots} to new ItemStack(Material.LEATHER_BOOTS, 1)
+    set {_metaB} to {_boots}.getItemMeta()
+    {_metaB}.setColor({_color})
+    {_metaB}.spigot().setUnbreakable(true)
+    {_boots}.setItemMeta({_metaB})
+    {_inv}.setBoots({_boots})
+
+function bridge_giveKit(p: player, teamColorData: integer):
+    clear {_p}'s inventory
+    set {_p}'s gamemode to survival
+    {_p}.setHealth(20.0)
+    {_p}.setFoodLevel(20)
+    {_p}.setFireTicks(0)
+    {_p}.setFallDistance(0.0)
+
+    remove regeneration from {_p}
+    remove absorption from {_p}
+    delete {bridge::player::%{_p}'s uuid%::gapple_eaten}
+    delete {-bridge::player::%{_p}'s uuid%::last_attacker_name}
+    delete {-bridge::player::%{_p}'s uuid%::last_attacker_time}
+
+    set {_sword} to new ItemStack(Material.IRON_SWORD, 1)
+    set {_mS} to {_sword}.getItemMeta()
+    {_mS}.spigot().setUnbreakable(true)
+    {_sword}.setItemMeta({_mS})
+    set slot 0 of {_p}'s inventory to {_sword}
+
+    set {_bow} to new ItemStack(Material.BOW, 1)
+    set {_mB} to {_bow}.getItemMeta()
+    {_mB}.spigot().setUnbreakable(true)
+    {_bow}.setItemMeta({_mB})
+    set slot 1 of {_p}'s inventory to {_bow}
+
+    set {_pick} to new ItemStack(Material.DIAMOND_PICKAXE, 1)
+    {_pick}.addUnsafeEnchantment(Enchantment.DIG_SPEED, 2)
+    set {_mP} to {_pick}.getItemMeta()
+    {_mP}.spigot().setUnbreakable(true)
+    {_pick}.setItemMeta({_mP})
+    set slot 2 of {_p}'s inventory to {_pick}
+
+    set {_clay} to new ItemStack(Material.STAINED_CLAY, 64)
+    {_clay}.setDurability({_teamColorData})
+    set slot 3 of {_p}'s inventory to {_clay}
+    set slot 4 of {_p}'s inventory to {_clay}
+
+    set slot 5 of {_p}'s inventory to 8 golden apples
+    set slot 8 of {_p}'s inventory to 1 arrow
+
+    bridge_giveLeatherArmor({_p}, {_teamColorData})
+    {_p}.updateInventory()
+
+function bridge_fixVisibility(inst: text):
+    wait 2 ticks
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        set {_p1} to loop-value-1
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            set {_p2} to loop-value-2
+            if bridge_isPresent({_p1}, {_inst}) is true:
+                if bridge_isPresent({_p2}, {_inst}) is true:
+                    {_p1}.hidePlayer({_p2})
+                    {_p1}.showPlayer({_p2})
+                    {_p2}.hidePlayer({_p1})
+                    {_p2}.showPlayer({_p1})
+
+# ---------------------------------------------------------
+# RELÓGIO DE PARTIDA, PAUSAS E DESCONEXÃO
+# ---------------------------------------------------------
+every 1 second:
+    loop {bridge::core::active_instances::*}:
+        set {_inst} to loop-value-1
+        set {_state} to {bridge::instance::%{_inst}%::state}
+
+        # 1. VOTAÇÃO EM ANDAMENTO (Pausa ou Gol de Ouro)
+        if {bridge::instance::%{_inst}%::voting::active} is true:
+            remove 1 from {bridge::instance::%{_inst}%::voting::timer}
+            set {_vType} to {bridge::instance::%{_inst}%::voting::type}
+            set {_vTime} to {bridge::instance::%{_inst}%::voting::timer}
+            
+            set {_barMsg} to "&e&lVOTAÇÃO [%{_vType}%&e&l]: &f%{_vTime}%s restantes &7(Vote pelo Chat)"
+            bridge_broadcastInstanceActionBar({_inst}, {_barMsg})
+
+            if {_vTime} <= 0:
+                bridge_evaluateVote({_inst})
+
+        # 2. PAUSA NA CAGE (LIVRE PARA MOVER NA CAGE)
+        else if {bridge::instance::%{_inst}%::in_pause} is true:
+            remove 1 from {bridge::instance::%{_inst}%::pause_timer}
+            set {_pTime} to {bridge::instance::%{_inst}%::pause_timer}
+            set {_reqTeam} to {bridge::instance::%{_inst}%::pause_request_team}
+            set {_arena} to {bridge::instance::%{_inst}%::arena}
+            set {_reqColor} to {bridge::arena::%{_arena}%::team::%{_reqTeam}%::color}
+            set {_teamName} to bridge_getTeamName({_reqColor})
+
+            set {_subMsg} to "&7Partida pausada (Voltando em %{_pTime}%s)"
+            
+            loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                if bridge_isPresent(loop-value-2, {_inst}) is true:
+                    bridge_coreTitle(loop-value-2, "%{_teamName}%", {_subMsg}, 20)
+                    bridge_sendActionBar(loop-value-2, "&e&lPAUSA ATIVA: &f%{_pTime}%s restantes &7(Clique no chat para retomar)")
+            loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                if bridge_isPresent(loop-value-2, {_inst}) is true:
+                    bridge_coreTitle(loop-value-2, "%{_teamName}%", {_subMsg}, 20)
+                    bridge_sendActionBar(loop-value-2, "&e&lPAUSA ATIVA: &f%{_pTime}%s restantes &7(Clique no chat para retomar)")
+
+            if {_pTime} <= 0:
+                bridge_resumeFromPause({_inst})
+
+        # 3. CONGELAMENTO POR DESCONEXÃO (JOGADOR FORA DA PARTIDA)
+        else if {bridge::instance::%{_inst}%::frozen} is true:
+            if {bridge::instance::%{_inst}%::freeze_reason} is "DISCONNECT":
+                if {bridge::instance::%{_inst}%::resume_active} is not true:
+                    remove 1 from {bridge::instance::%{_inst}%::freeze_timer}
+                    set {_fTime} to {bridge::instance::%{_inst}%::freeze_timer}
+                    set {_dcP} to {bridge::instance::%{_inst}%::freeze_player_name}
+
+                    set {_subMsg} to "&7Aguardando reconexão (%{_fTime}%s)"
+                    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                        if bridge_isPresent(loop-value-2, {_inst}) is true:
+                            bridge_coreTitle(loop-value-2, "&c&lJOGADOR DESCONECTADO", {_subMsg}, 20)
+                            bridge_sendActionBar(loop-value-2, "&c&lAGUARDANDO RECONEXÃO DE %{_dcP}%&c: &e%{_fTime}%s")
+                    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                        if bridge_isPresent(loop-value-2, {_inst}) is true:
+                            bridge_coreTitle(loop-value-2, "&c&lJOGADOR DESCONECTADO", {_subMsg}, 20)
+                            bridge_sendActionBar(loop-value-2, "&c&lAGUARDANDO RECONEXÃO DE %{_dcP}%&c: &e%{_fTime}%s")
+
+                    if {_fTime} <= 0:
+                        bridge_handleDisconnectTimeout({_inst})
+
+        # 4. TEMPO REGULAMENTAR DE PARTIDA
+        else if {_state} is "INGAME":
+            remove 1 from {bridge::instance::%{_inst}%::time_remaining}
+            if {bridge::instance::%{_inst}%::time_remaining} <= 0:
+                set {bridge::instance::%{_inst}%::time_remaining} to 0
+                bridge_handleTimeEnd({_inst})
+
+function bridge_broadcastInstanceActionBar(inst: text, msg: text):
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_sendActionBar(loop-value, {_msg})
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_sendActionBar(loop-value, {_msg})
+
+function bridge_handleTimeEnd(inst: text):
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        stop
+
+    if {bridge::instance::%{_inst}%::golden_goal_voted} is true:
+        stop
+
+    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+    if {_s1} is not set:
+        set {_s1} to 0
+    if {_s2} is not set:
+        set {_s2} to 0
+
+    if {_s1} > {_s2}:
+        bridge_endMatch({_inst}, 1)
+    else if {_s2} > {_s1}:
+        bridge_endMatch({_inst}, 2)
+    else:
+        set {bridge::instance::%{_inst}%::golden_goal_voted} to true
+        bridge_startVote({_inst}, "GOL DE OURO", 30)
+
+# ---------------------------------------------------------
+# SISTEMA DE VOTAÇÃO (PAUSA & GOL DE OURO)
+# ---------------------------------------------------------
+function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: integer = 0):
+    if {bridge::instance::%{_inst}%::voting::active} is true:
+        stop
+    set {bridge::instance::%{_inst}%::voting::active} to true
+    set {bridge::instance::%{_inst}%::voting::type} to {_type}
+    set {bridge::instance::%{_inst}%::voting::timer} to {_duration}
+    set {bridge::instance::%{_inst}%::voting::request_team} to {_reqTeam}
+
+    delete {bridge::instance::%{_inst}%::voting::votes::*}
+
+    set {_msgHeader} to "%{bridge::config::prefix}% &e&lNOVA VOTAÇÃO: &f%{_type}% &7(%{_duration}%s)"
+    set {_msgAsk} to "%{bridge::config::prefix}% &eClique abaixo para votar:"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send "" to loop-value
+            send {_msgHeader} to loop-value
+            send {_msgAsk} to loop-value
+            execute console command "tellraw %loop-value% {""text"":"""", ""extra"":[{""text"":""   &a&l[VOTAR SIM]  "",""clickEvent"":{""action"":""run_command"",""value"":""/bridgevote sim""}},{""text"":""&c&l[VOTAR NÃO]"",""clickEvent"":{""action"":""run_command"",""value"":""/bridgevote nao""}}]}"
+            send "" to loop-value
+            bridge_corePling(loop-value, 1.5)
+
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send "" to loop-value
+            send {_msgHeader} to loop-value
+            send {_msgAsk} to loop-value
+            execute console command "tellraw %loop-value% {""text"":"""", ""extra"":[{""text"":""   &a&l[VOTAR SIM]  "",""clickEvent"":{""action"":""run_command"",""value"":""/bridgevote sim""}},{""text"":""&c&l[VOTAR NÃO]"",""clickEvent"":{""action"":""run_command"",""value"":""/bridgevote nao""}}]}"
+            send "" to loop-value
+            bridge_corePling(loop-value, 1.5)
+
+command /bridgevote [<text>]:
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is not "INGAME":
+            stop
+        set {_inst} to {bridge::player::%{_u}%::instance}
+        if {bridge::instance::%{_inst}%::voting::active} is not true:
+            send "%{bridge::config::erro}% &cNenhuma votação em andamento." to player
+            stop
+
+        if arg-1 is "sim" or "s":
+            set {bridge::instance::%{_inst}%::voting::votes::%{_u}%} to "SIM"
+            send "%{bridge::config::sucesso}% &aVocê votou &fSIM&a!" to player
+        else if arg-1 is "nao" or "não" or "n":
+            set {bridge::instance::%{_inst}%::voting::votes::%{_u}%} to "NAO"
+            send "%{bridge::config::sucesso}% &cVocê votou &fNÃO&c!" to player
+        else:
+            send "%{bridge::config::erro}% &cUse: /bridgevote <sim|nao>" to player
+            stop
+
+        bridge_checkVoteEarlyComplete({_inst})
+
+function bridge_checkVoteEarlyComplete(inst: text):
+    set {_totalOnline} to 0
+    set {_totalVotes} to 0
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_totalOnline}
+            if {bridge::instance::%{_inst}%::voting::votes::%loop-value's uuid%} is set:
+                add 1 to {_totalVotes}
+
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_totalOnline}
+            if {bridge::instance::%{_inst}%::voting::votes::%loop-value's uuid%} is set:
+                add 1 to {_totalVotes}
+
+    if {_totalVotes} >= {_totalOnline}:
+        bridge_evaluateVote({_inst})
+
+function bridge_evaluateVote(inst: text):
+    if {bridge::instance::%{_inst}%::voting::active} is not true:
+        stop
+
+    set {_type} to {bridge::instance::%{_inst}%::voting::type}
+    set {_reqTeam} to {bridge::instance::%{_inst}%::voting::request_team}
+    delete {bridge::instance::%{_inst}%::voting::active}
+
+    set {_t1Yes} to 0
+    set {_t1Total} to 0
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_t1Total}
+            if {bridge::instance::%{_inst}%::voting::votes::%loop-value's uuid%} is "SIM":
+                add 1 to {_t1Yes}
+
+    set {_t2Yes} to 0
+    set {_t2Total} to 0
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_t2Total}
+            if {bridge::instance::%{_inst}%::voting::votes::%loop-value's uuid%} is "SIM":
+                add 1 to {_t2Yes}
+
+    set {_t1Pass} to false
+    set {_t2Pass} to false
+
+    if {_t1Total} > 0:
+        if ({_t1Yes} / {_t1Total}) >= 0.5:
+            set {_t1Pass} to true
+    if {_t2Total} > 0:
+        if ({_t2Yes} / {_t2Total}) >= 0.5:
+            set {_t2Pass} to true
+
+    # RESULTADO: GOL DE OURO
+    if {_type} is "GOL DE OURO":
+        if {_t1Pass} is true:
+            if {_t2Pass} is true:
+                set {bridge::instance::%{_inst}%::golden_goal} to true
+                set {bridge::instance::%{_inst}%::time_remaining} to 0
+                set {bridge::instance::%{_inst}%::state} to "INGAME"
+                delete {bridge::instance::%{_inst}%::frozen}
+                
+                set {_msg} to "%{bridge::config::prefix}% &a&lGOL DE OURO APROVADO! &eO próximo ponto vence a partida!"
+                bridge_broadcastInstanceActionBar({_inst}, "&a&lGOL DE OURO APROVADO!")
+                loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        send {_msg} to loop-value
+                        bridge_coreTitle(loop-value, "&b&lGOL DE OURO!", "&ePróximo gol vence!", 40)
+                loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        send {_msg} to loop-value
+                        bridge_coreTitle(loop-value, "&b&lGOL DE OURO!", "&ePróximo gol vence!", 40)
+                stop
+
+        set {_msg} to "%{bridge::config::prefix}% &cGol de Ouro rejeitado. Partida encerrada em EMPATE!"
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        bridge_endMatch({_inst}, 0)
+
+    # RESULTADO: PAUSA (SOMENTE AGORA DEBITA O PAUSE USADO)
+    else if {_type} is "PAUSA":
+        if {_t1Pass} is true:
+            if {_t2Pass} is true:
+                # DEBITA A PAUSA UTILIZADA APENAS COM APROVAÇÃO
+                add 1 to {bridge::instance::%{_inst}%::pauses::%{_reqTeam}%}
+
+                set {_arena} to {bridge::instance::%{_inst}%::arena}
+                set {_c1} to {bridge::arena::%{_arena}%::team::1::cage}
+                if {_c1} is set:
+                    set {_orig1} to {_c1}
+                else:
+                    set {_sponge1} to {bridge::arena::%{_arena}%::team::1::sponge}
+                    set {_orig1} to location 7 blocks above {_sponge1}
+
+                set {_c2} to {bridge::arena::%{_arena}%::team::2::cage}
+                if {_c2} is set:
+                    set {_orig2} to {_c2}
+                else:
+                    set {_sponge2} to {bridge::arena::%{_arena}%::team::2::sponge}
+                    set {_orig2} to location 7 blocks above {_sponge2}
+
+                set {_dest1} to bridge_getLoc({_orig1}, {_inst})
+                set {_dest2} to bridge_getLoc({_orig2}, {_inst})
+
+                set {_cData1} to {bridge::arena::%{_arena}%::team::1::color}
+                set {_cData2} to {bridge::arena::%{_arena}%::team::2::color}
+
+                bridge_buildCage({_dest1}, {_cData1}, {_inst})
+                bridge_buildCage({_dest2}, {_cData2}, {_inst})
+
+                loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        teleport loop-value to {_dest1}
+                loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        teleport loop-value to {_dest2}
+
+                set {bridge::instance::%{_inst}%::in_pause} to true
+                set {bridge::instance::%{_inst}%::pause_request_team} to {_reqTeam}
+                set {bridge::instance::%{_inst}%::pause_timer} to 30
+                
+                set {_msg} to "%{bridge::config::prefix}% &a&lPAUSA APROVADA! &ePartida congelada por 30s na cage."
+                loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        send {_msg} to loop-value
+                        execute console command "tellraw %loop-value% {""text"":"""", ""extra"":[{""text"":""&a&l[CLIQUE AQUI PARA RETOMAR PARTIDA]"",""clickEvent"":{""action"":""run_command"",""value"":""/despausar""}}]}"
+                loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                    if bridge_isPresent(loop-value, {_inst}) is true:
+                        send {_msg} to loop-value
+                        execute console command "tellraw %loop-value% {""text"":"""", ""extra"":[{""text"":""&a&l[CLIQUE AQUI PARA RETOMAR PARTIDA]"",""clickEvent"":{""action"":""run_command"",""value"":""/despausar""}}]}"
+                stop
+
+        set {_msg} to "%{bridge::config::prefix}% &cSolicitação de pausa REJEITADA por falta de consenso entre os times."
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+
+# ---------------------------------------------------------
+# AUTO-RECONEXÃO NO JOIN
+# ---------------------------------------------------------
+on join:
+    wait 2 ticks
+    if player is not online:
+        stop
+    set {_u} to player's uuid
+    if {bridge::return::%{_u}%::instance} is set:
+        bridge_leaveToLobby(player)
+        bridge_offerReturn(player)
+    else:
+        if {bridge::config::lobby} is set:
+            teleport player to {bridge::config::lobby}
+            set player's gamemode to adventure
+            set player's health to 20
+            set player's food level to 20
+            set player's fall distance to 0
+
+on hunger meter change:
+    set food level to 20
+
+on heal:
+    if {bridge::player::%player's uuid%::state} is "INGAME":
+        set {_reason} to "%heal cause%"
+        if {_reason} contains "satiated" or "natural" or "regen":
+            cancel event
+
+command /bridgelobby:
+    permission: bridge.admin
+    executable by: players
+    trigger:
+        set {bridge::config::lobby} to location of player
+        send "%{bridge::config::sucesso}% &aLobby do The Bridge definido com sucesso!" to player
+
+command /jogar [<text>]:
+    aliases: /play, /join
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+
+        if {bridge::config::lobby} is not set:
+            send "%{bridge::config::erro}% &cConfigure o lobby com /bridgelobby antes de jogar." to player
+            stop
+        if {bridge::player::%{_u}%::state} is set:
+            send "%{bridge::config::erro}% &cVocê já está em uma fila ou partida." to player
+            stop
+        set {_arena} to arg-1
+        if {_arena} is not set:
+            set {_arena} to first element of {bridge::arenas::*}
+        if {_arena} is not set:
+            send "%{bridge::config::erro}% &cNenhuma arena cadastrada." to player
+            stop
+        if {bridge::arenas::*} does not contain {_arena}:
+            send "%{bridge::config::erro}% &cArena não encontrada." to player
+            stop
+        if {bridge::return::%{_u}%::instance} is set:
+            send "%{bridge::config::prefix}% &eVocê ainda pode usar /l e /retornar enquanto espera. Se outra partida começar, o retorno à anterior será encerrado." to player
+        bridge_joinQueue(player, {_arena})
+
+# ---------------------------------------------------------
+# COMANDO /L CORRIGIDO (ABANDONO VS RECONEXÃO)
+# ---------------------------------------------------------
+command /l [<text>]:
+    aliases: /leave, /lobby, /sair
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is "QUEUE":
+            set {_arena} to {bridge::player::%{_u}%::queue_arena}
+            remove player from {bridge::queue::%{_arena}%::*}
+            delete {bridge::player::%{_u}%::*}
+            send "%{bridge::config::prefix}% &eVocê saiu da fila de espera." to player
+        else if {bridge::player::%{_u}%::state} is "INGAME":
+            bridge_markAbsent(player)
+            bridge_leaveToLobby(player)
+            send "%{bridge::config::prefix}% &eVocê saiu para o lobby." to player
+            bridge_offerReturn(player)
+            stop
+        if {bridge::config::lobby} is set:
+            teleport player to {bridge::config::lobby}
+        bridge_offerReturn(player)
+
+command /retornar:
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is set:
+            send "%{bridge::config::erro}% &cVocê já está em uma fila ou partida. Se estiver na fila, use /l antes de retornar." to player
+            stop
+        set {_inst} to {bridge::return::%{_u}%::instance}
+        set {_sid} to {bridge::return::%{_u}%::match_id}
+        if {_inst} is not set:
+            send "%{bridge::config::erro}% &cVocê não tem uma partida disponível para retornar." to player
+            stop
+        if {_sid} is not set:
+            delete {bridge::return::%{_u}%::*}
+            send "%{bridge::config::erro}% &cO vínculo de retorno não é válido." to player
+            stop
+        if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+            delete {bridge::return::%{_u}%::*}
+            send "%{bridge::config::erro}% &cSua partida anterior já terminou." to player
+            stop
+        set {_team} to {bridge::instance::%{_inst}%::members::%{_u}%::team}
+        if {_team} is not set:
+            send "%{bridge::config::erro}% &cSeu vínculo não possui um time válido." to player
+            stop
+        bridge_reconnectPlayer(player, {_inst}, {_team})
+
+function bridge_reconnectPlayer(p: player, inst: text, team: integer):
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is set:
+        stop
+    set {_sid} to {bridge::return::%{_u}%::match_id}
+    if {_sid} is not set:
+        stop
+    if {bridge::return::%{_u}%::instance} is not {_inst}:
+        stop
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::match_id} is not {_sid}:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::detached} is true:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::team} is not {_team}:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is true:
+        stop
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_orig} to {bridge::arena::%{_arena}%::team::%{_team}%::sponge}
+    set {_dest} to bridge_getLoc({_orig}, {_inst})
+    set {bridge::player::%{_u}%::instance} to {_inst}
+    set {bridge::player::%{_u}%::team} to {_team}
+    set {bridge::player::%{_u}%::match_id} to {_sid}
+    set {bridge::player::%{_u}%::state} to "INGAME"
+    set {bridge::player::%{_u}%::match_kills} to {bridge::instance::%{_inst}%::members::%{_u}%::match_kills}
+    set {bridge::player::%{_u}%::match_goals} to {bridge::instance::%{_inst}%::members::%{_u}%::match_goals}
+    # Substitui a referência antiga de Player pela conexão atual, usando UUID.
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        set {_oldPlayer} to loop-value
+        if {_oldPlayer}'s uuid is {_u}:
+            remove loop-value from {bridge::instance::%{_inst}%::team::%{_team}%::players::*}
+    add {_p} to {bridge::instance::%{_inst}%::team::%{_team}%::players::*}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::present} to true
+    teleport {_p} to {_dest}
+    bridge_giveKit({_p}, {bridge::arena::%{_arena}%::team::%{_team}%::color})
+    set {_zero} to new Vector(0, 0, 0)
+    {_p}.setVelocity({_zero})
+    delete {bridge::return::%{_u}%::*}
+    send "%{bridge::config::prefix}% &aVocê retornou pelo spawn do seu time!" to {_p}
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        if {bridge::instance::%{_inst}%::freeze_reason} is "DISCONNECT":
+            if bridge_absenceSufficient({_inst}) is true:
+                bridge_resumeMatchSpot({_inst})
+            else:
+                send "%{bridge::config::prefix}% &ePresença ainda insuficiente. A partida segue congelada." to {_p}
+
+
+function bridge_resumeFromPause(inst: text):
+    if {bridge::instance::%{_inst}%::resume_active} is true:
+        stop
+    set {bridge::instance::%{_inst}%::resume_active} to true
+    delete {bridge::instance::%{_inst}%::in_pause}
+    delete {bridge::instance::%{_inst}%::pause_request_team}
+    
+    set {_matchId} to {bridge::instance::%{_inst}%::match_id}
+    loop 3 times:
+        if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+            bridge_removeCage({_inst})
+            stop
+        set {_sec} to 4 - loop-value-1
+        set {_pitch} to 1.0 + (loop-value-1 * 0.3)
+        
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                bridge_coreTitle(loop-value-2, "&e&l%{_sec}%", "&7RETOMANDO PARTIDA...", 20)
+                bridge_corePling(loop-value-2, {_pitch})
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                bridge_coreTitle(loop-value-2, "&e&l%{_sec}%", "&7RETOMANDO PARTIDA...", 20)
+                bridge_corePling(loop-value-2, {_pitch})
+        wait 1 second
+
+    bridge_removeCage({_inst})
+    
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&a&lVALENDO!", "&7Partida retomada!", 20)
+            bridge_corePling(loop-value, 2.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&a&lVALENDO!", "&7Partida retomada!", 20)
+            bridge_corePling(loop-value, 2.0)
+    if {bridge::instance::%{_inst}%::match_id} is {_matchId}:
+        delete {bridge::instance::%{_inst}%::resume_active}
+
+function bridge_resumeMatchSpot(inst: text):
+    if {bridge::instance::%{_inst}%::resume_active} is true:
+        stop
+    if {bridge::instance::%{_inst}%::frozen} is not true:
+        stop
+    set {bridge::instance::%{_inst}%::resume_active} to true
+
+    set {_matchId} to {bridge::instance::%{_inst}%::match_id}
+    loop 3 times:
+        if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+            stop
+        if bridge_absenceSufficient({_inst}) is not true:
+            delete {bridge::instance::%{_inst}%::resume_active}
+            loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                if bridge_isPresent(loop-value-2, {_inst}) is true:
+                    send "%{bridge::config::prefix}% &cRetomada cancelada: alguém saiu. O prazo de espera continua." to loop-value-2
+            loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                if bridge_isPresent(loop-value-2, {_inst}) is true:
+                    send "%{bridge::config::prefix}% &cRetomada cancelada: alguém saiu. O prazo de espera continua." to loop-value-2
+            stop
+        set {_sec} to 4 - loop-value-1
+        set {_pitch} to 1.0 + (loop-value-1 * 0.3)
+
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                bridge_coreTitle(loop-value-2, "&e&l%{_sec}%", "&7RETOMANDO PARTIDA...", 20)
+                bridge_corePling(loop-value-2, {_pitch})
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                bridge_coreTitle(loop-value-2, "&e&l%{_sec}%", "&7RETOMANDO PARTIDA...", 20)
+                bridge_corePling(loop-value-2, {_pitch})
+        wait 1 second
+
+    if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+        stop
+    if bridge_absenceSufficient({_inst}) is not true:
+        delete {bridge::instance::%{_inst}%::resume_active}
+        stop
+
+    delete {bridge::instance::%{_inst}%::frozen}
+    delete {bridge::instance::%{_inst}%::freeze_reason}
+    delete {bridge::instance::%{_inst}%::freeze_player_name}
+    delete {bridge::instance::%{_inst}%::freeze_team}
+    delete {bridge::instance::%{_inst}%::freeze_timer}
+    delete {bridge::instance::%{_inst}%::resume_active}
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&a&lVALENDO!", "&7Partida retomada!", 20)
+            bridge_corePling(loop-value, 2.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&a&lVALENDO!", "&7Partida retomada!", 20)
+            bridge_corePling(loop-value, 2.0)
+
+# ---------------------------------------------------------
+# PAUSAS SOLICITADAS E COMANDO /PAUSA
+# ---------------------------------------------------------
+command /pausa:
+    aliases: /pause
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is not "INGAME":
+            send "%{bridge::config::erro}% &cVocê só pode pedir pausa durante uma partida." to player
+            stop
+        
+        set {_inst} to {bridge::player::%{_u}%::instance}
+        set {_team} to {bridge::player::%{_u}%::team}
+        
+        if {bridge::instance::%{_inst}%::frozen} is true:
+            send "%{bridge::config::erro}% &cA partida já está congelada ou com votação em andamento." to player
+            stop
+
+        if {bridge::instance::%{_inst}%::in_pause} is true:
+            send "%{bridge::config::erro}% &cA partida já está pausada." to player
+            stop
+
+        if {bridge::instance::%{_inst}%::state} is not "INGAME":
+            send "%{bridge::config::erro}% &cAguarde a rodada ser liberada para solicitar pausa." to player
+            stop
+        if {bridge::instance::%{_inst}%::match_id} is not set:
+            stop
+        if {bridge::instance::%{_inst}%::voting::active} is true:
+            send "%{bridge::config::erro}% &cJá existe uma votação em andamento. Aguarde o resultado." to player
+            stop
+        if {bridge::instance::%{_inst}%::resume_active} is true:
+            send "%{bridge::config::erro}% &cJá existe uma contagem de retomada. Aguarde a liberação." to player
+            stop
+
+        set {_usedPauses} to {bridge::instance::%{_inst}%::pauses::%{_team}%}
+        if {_usedPauses} is not set:
+            set {_usedPauses} to 0
+
+        if {_usedPauses} >= 3:
+            send "%{bridge::config::erro}% &cSeu time já esgotou o limite de 3 pausas." to player
+            stop
+
+        set {_pName} to bridge_getFormattedPlayerName(player)
+        send "%{bridge::config::prefix}% %{_pName}% &esolicitou uma pausa para o time!" to player
+        
+        bridge_startVote({_inst}, "PAUSA", 15, {_team})
+
+command /despausar:
+    aliases: /unpause, /retomar
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is not "INGAME":
+            stop
+        set {_inst} to {bridge::player::%{_u}%::instance}
+        if {bridge::instance::%{_inst}%::in_pause} is not true:
+            send "%{bridge::config::erro}% &cA partida não está pausada." to player
+            stop
+        
+        set {_pName} to bridge_getFormattedPlayerName(player)
+        send "%{bridge::config::prefix}% %{_pName}% &evotou para retomar a partida!" to player
+        bridge_resumeFromPause({_inst})
+
+function bridge_joinQueue(p: player, arena: text):
+    delete {_opponent}
+    loop {bridge::queue::%{_arena}%::*}:
+        set {_candidate} to loop-value
+        if {_candidate} is online:
+            if {_candidate} is not {_p}:
+                if {bridge::player::%{_candidate}'s uuid%::state} is "QUEUE":
+                    if {bridge::player::%{_candidate}'s uuid%::queue_arena} is {_arena}:
+                        set {_opponent} to {_candidate}
+                        remove {_candidate} from {bridge::queue::%{_arena}%::*}
+                        exit loop
+        remove {_candidate} from {bridge::queue::%{_arena}%::*}
+    if {_opponent} is set:
+        bridge_startMatch({_opponent}, {_p}, {_arena})
+        stop
+    add {_p} to {bridge::queue::%{_arena}%::*}
+    set {bridge::player::%{_p}'s uuid%::state} to "QUEUE"
+    set {bridge::player::%{_p}'s uuid%::queue_arena} to {_arena}
+    send "%{bridge::config::prefix}% &aVocê entrou na fila de &f%{_arena}%&a! Procurando oponente... &7(/l para sair)" to {_p}
+
+# ---------------------------------------------------------
+# GERENCIAMENTO DE INSTÂNCIAS E PARTIDA
+# ---------------------------------------------------------
+function bridge_findFreeInstance(arena: text) :: text:
+    loop {bridge::arena::%{_arena}%::instances::*}:
+        set {_inst} to loop-value
+        if {bridge::instances::free::*} contains {_inst}:
+            set {_state} to {bridge::instance::%{_inst}%::state}
+            if {_state} is not set:
+                return {_inst}
+            if {_state} is "IDLE":
+                return {_inst}
+    return ""
+
+function bridge_startMatch(p1: player, p2: player, arena: text):
+    set {_inst} to bridge_findFreeInstance({_arena})
+    if {_inst} is "":
+        bridge_expandInstances({_arena}, 1)
+        set {_inst} to bridge_findFreeInstance({_arena})
+    if {_inst} is "":
+        remove {_p1} from {bridge::queue::%{_arena}%::*}
+        remove {_p2} from {bridge::queue::%{_arena}%::*}
+        delete {bridge::player::%{_p1}'s uuid%::*}
+        delete {bridge::player::%{_p2}'s uuid%::*}
+        send "%{bridge::config::erro}% &cFalha ao alocar arena. Digite /jogar novamente." to {_p1}
+        send "%{bridge::config::erro}% &cFalha ao alocar arena. Digite /jogar novamente." to {_p2}
+        stop
+
+    bridge_detachPrevious({_p1})
+    bridge_detachPrevious({_p2})
+    remove {_inst} from {bridge::instances::free::*}
+    if {bridge::core::active_instances::*} does not contain {_inst}:
+        add {_inst} to {bridge::core::active_instances::*}
+
+    set {bridge::instance::%{_inst}%::state} to "STARTING"
+    
+    set {_maxTime} to {bridge::arena::%{_arena}%::tempo}
+    if {_maxTime} is not set:
+        set {_maxTime} to 900
+    set {bridge::instance::%{_inst}%::time_remaining} to {_maxTime}
+    delete {bridge::instance::%{_inst}%::frozen}
+    delete {bridge::instance::%{_inst}%::freeze_reason}
+    delete {bridge::instance::%{_inst}%::freeze_player_name}
+    delete {bridge::instance::%{_inst}%::freeze_team}
+    delete {bridge::instance::%{_inst}%::freeze_timer}
+    delete {bridge::instance::%{_inst}%::in_pause}
+    delete {bridge::instance::%{_inst}%::golden_goal}
+    delete {bridge::instance::%{_inst}%::golden_goal_voted}
+    delete {bridge::instance::%{_inst}%::pauses::1}
+    delete {bridge::instance::%{_inst}%::pauses::2}
+    delete {bridge::instance::%{_inst}%::voting::active}
+    
+    if {bridge::core::session_counter} is not set:
+        set {bridge::core::session_counter} to 0
+    add 1 to {bridge::core::session_counter}
+    set {bridge::instance::%{_inst}%::match_id} to {bridge::core::session_counter}
+    
+    delete {bridge::instance::%{_inst}%::closing_id}
+    delete {bridge::instance::%{_inst}%::team::1::players::*}
+    delete {bridge::instance::%{_inst}%::team::2::players::*}
+    delete {bridge::instance::%{_inst}%::placed_blocks::*}
+
+    add {_p1} to {bridge::instance::%{_inst}%::team::1::players::*}
+    add {_p2} to {bridge::instance::%{_inst}%::team::2::players::*}
+
+    set {bridge::instance::%{_inst}%::team::1::score} to 0
+    set {bridge::instance::%{_inst}%::team::2::score} to 0
+
+    delete {bridge::player::%{_p1}'s uuid%::queue_arena}
+    delete {bridge::player::%{_p2}'s uuid%::queue_arena}
+
+    set {bridge::player::%{_p1}'s uuid%::instance} to {_inst}
+    set {bridge::player::%{_p1}'s uuid%::team} to 1
+    set {bridge::player::%{_p1}'s uuid%::state} to "INGAME"
+    set {bridge::player::%{_p1}'s uuid%::match_kills} to 0
+    set {bridge::player::%{_p1}'s uuid%::match_goals} to 0
+
+    set {bridge::player::%{_p2}'s uuid%::instance} to {_inst}
+    set {bridge::player::%{_p2}'s uuid%::team} to 2
+    set {bridge::player::%{_p2}'s uuid%::state} to "INGAME"
+    set {bridge::player::%{_p2}'s uuid%::match_kills} to 0
+    set {bridge::player::%{_p2}'s uuid%::match_goals} to 0
+
+    delete {bridge::instance::%{_inst}%::members::*}
+    delete {bridge::instance::%{_inst}%::resume_active}
+    set {bridge::instance::%{_inst}%::team::1::initial_size} to size of {bridge::instance::%{_inst}%::team::1::players::*}
+    set {bridge::instance::%{_inst}%::team::2::initial_size} to size of {bridge::instance::%{_inst}%::team::2::players::*}
+    loop 2 times:
+        set {_t} to loop-value
+        loop {bridge::instance::%{_inst}%::team::%{_t}%::players::*}:
+            set {_member} to loop-value-2
+            set {_mu} to {_member}'s uuid
+            set {bridge::player::%{_mu}%::match_id} to {bridge::instance::%{_inst}%::match_id}
+            set {bridge::instance::%{_inst}%::members::%{_mu}%::match_id} to {bridge::instance::%{_inst}%::match_id}
+            set {bridge::instance::%{_inst}%::members::%{_mu}%::team} to {_t}
+            set {bridge::instance::%{_inst}%::members::%{_mu}%::present} to true
+            set {bridge::instance::%{_inst}%::members::%{_mu}%::match_kills} to 0
+            set {bridge::instance::%{_inst}%::members::%{_mu}%::match_goals} to 0
+
+    set {_n1} to bridge_getFormattedPlayerName({_p1})
+    set {_n2} to bridge_getFormattedPlayerName({_p2})
+
+    send "%{bridge::config::prefix}% &aPartida encontrada! Você jogará contra %{_n2}%&a." to {_p1}
+    send "%{bridge::config::prefix}% &aPartida encontrada! Você jogará contra %{_n1}%&a." to {_p2}
+
+    bridge_startRound({_inst})
+
+function bridge_startRound(inst: text, goalScorerName: text = ""):
+    set {_state} to {bridge::instance::%{_inst}%::state}
+    if {_state} is not "STARTING":
+        if {_state} is not "GOAL":
+            stop
+
+    set {_matchId} to {bridge::instance::%{_inst}%::match_id}
+    if {_matchId} is not set:
+        stop
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {bridge::instance::%{_inst}%::state} to "CAGE"
+
+    set {_c1} to {bridge::arena::%{_arena}%::team::1::cage}
+    if {_c1} is set:
+        set {_orig1} to {_c1}
+    else:
+        set {_sponge1} to {bridge::arena::%{_arena}%::team::1::sponge}
+        set {_orig1} to location 7 blocks above {_sponge1}
+        set yaw of {_orig1} to yaw of {_sponge1}
+        set pitch of {_orig1} to pitch of {_sponge1}
+
+    set {_c2} to {bridge::arena::%{_arena}%::team::2::cage}
+    if {_c2} is set:
+        set {_orig2} to {_c2}
+    else:
+        set {_sponge2} to {bridge::arena::%{_arena}%::team::2::sponge}
+        set {_orig2} to location 7 blocks above {_sponge2}
+        set yaw of {_orig2} to yaw of {_sponge2}
+        set pitch of {_orig2} to pitch of {_sponge2}
+
+    set {_dest1} to bridge_getLoc({_orig1}, {_inst})
+    set {_dest2} to bridge_getLoc({_orig2}, {_inst})
+
+    set {_cData1} to {bridge::arena::%{_arena}%::team::1::color}
+    set {_cData2} to {bridge::arena::%{_arena}%::team::2::color}
+    set {_tCode1} to bridge_getTeamColorCode({_cData1})
+    set {_tCode2} to bridge_getTeamColorCode({_cData2})
+
+    bridge_buildCage({_dest1}, {_cData1}, {_inst})
+    bridge_buildCage({_dest2}, {_cData2}, {_inst})
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            teleport loop-value to {_dest1}
+            bridge_giveKit(loop-value, {_cData1})
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            teleport loop-value to {_dest2}
+            bridge_giveKit(loop-value, {_cData2})
+
+    bridge_fixVisibility({_inst})
+
+    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+
+    loop 5 times:
+        if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+            bridge_removeCage({_inst})
+            stop
+        if {bridge::instance::%{_inst}%::state} is not "CAGE":
+            bridge_removeCage({_inst})
+            stop
+
+        set {_sec} to 6 - loop-value-1
+        set {_sub} to "&7A rodada vai começar!"
+        if {_goalScorerName} is not "":
+            set {_sub} to "&fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}% &7(Iniciando em %{_sec}%s)"
+
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                if {_goalScorerName} is not "":
+                    bridge_coreTitle(loop-value-2, "&aGOL DE %{_goalScorerName}%!", {_sub}, 20)
+                else:
+                    bridge_coreTitle(loop-value-2, "&e%{_sec}%", {_sub}, 20)
+                bridge_corePling(loop-value-2, 1.0)
+                if {_sec} is 5:
+                    if {_goalScorerName} is not "":
+                        send "%{bridge::config::prefix}% &aGOL DE %{_goalScorerName}%! &fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%" to loop-value-2
+                    else:
+                        send "%{bridge::config::prefix}% &eA rodada inicia em 5 segundos..." to loop-value-2
+
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                if {_goalScorerName} is not "":
+                    bridge_coreTitle(loop-value-2, "&aGOL DE %{_goalScorerName}%!", {_sub}, 20)
+                else:
+                    bridge_coreTitle(loop-value-2, "&e%{_sec}%", {_sub}, 20)
+                bridge_corePling(loop-value-2, 1.0)
+                if {_sec} is 5:
+                    if {_goalScorerName} is not "":
+                        send "%{bridge::config::prefix}% &aGOL DE %{_goalScorerName}%! &fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%" to loop-value-2
+                    else:
+                        send "%{bridge::config::prefix}% &eA rodada inicia em 5 segundos..." to loop-value-2
+
+        wait 1 second
+
+    if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+        bridge_removeCage({_inst})
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "CAGE":
+        bridge_removeCage({_inst})
+        stop
+
+    bridge_removeCage({_inst})
+    set {bridge::instance::%{_inst}%::state} to "INGAME"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aVALENDO!", "&7Cruze a ponte e marque o gol!", 20)
+            send "%{bridge::config::prefix}% &a&lVALENDO! &7Cruze a ponte e marque o gol!" to loop-value
+            bridge_corePling(loop-value, 2.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aVALENDO!", "&7Cruze a ponte e marque o gol!", 20)
+            send "%{bridge::config::prefix}% &a&lVALENDO! &7Cruze a ponte e marque o gol!" to loop-value
+            bridge_corePling(loop-value, 2.0)
+
+# ---------------------------------------------------------
+# RESPAWN, MOVIMENTO OTIMIZADO E VERIFICAÇÃO DE PORTAIS
+# ---------------------------------------------------------
+function bridge_respawnPlayer(p: player, deathType: text = "VOID", killerName: text = ""):
+    set {_inst} to {bridge::player::%{_p}'s uuid%::instance}
+    if {_inst} is not set:
+        stop
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_team} to {bridge::player::%{_p}'s uuid%::team}
+    set {_orig} to {bridge::arena::%{_arena}%::team::%{_team}%::sponge}
+    set {_dest} to bridge_getLoc({_orig}, {_inst})
+    
+    set {_vNameFormatted} to bridge_getFormattedPlayerName({_p})
+
+    if {_deathType} is not "SELF_PORTAL":
+        bridge_addStat({_p}, "deaths", 1)
+        if {_killerName} is not "":
+            set {_pKiller} to {_killerName} parsed as offline player
+            if {_pKiller} is online:
+                bridge_addStat({_pKiller}, "kills", 1)
+                add 1 to {bridge::player::%{_pKiller}'s uuid%::match_kills}
+
+    if {_killerName} is not "":
+        set {_pKillerObj} to {_killerName} parsed as offline player
+        if {_pKillerObj} is online:
+            set {_kNameFormatted} to bridge_getFormattedPlayerName({_pKillerObj})
+        else:
+            set {_kNameFormatted} to "&f%{_killerName}%"
+
+        if {_deathType} is "VOID_KILL":
+            set {_msg} to "%{bridge::config::prefix}% %{_vNameFormatted}% &7foi jogado no void por %{_kNameFormatted}%&7!"
+        else:
+            set {_msg} to "%{bridge::config::prefix}% %{_vNameFormatted}% &7foi abatido por %{_kNameFormatted}%&7!"
+    else if {_deathType} is "SELF_PORTAL":
+        set {_msg} to "%{bridge::config::prefix}% %{_vNameFormatted}% &erenasceu no próprio portal!"
+    else:
+        set {_msg} to "%{bridge::config::prefix}% %{_vNameFormatted}% &7caiu no void e renasceu!"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msg} to loop-value
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msg} to loop-value
+
+    teleport {_p} to {_dest}
+    bridge_giveKit({_p}, {bridge::arena::%{_arena}%::team::%{_team}%::color})
+    
+    delete {-bridge::player::%{_p}'s uuid%::last_attacker_name}
+    delete {-bridge::player::%{_p}'s uuid%::last_attacker_time}
+
+    set {_zero} to new Vector(0, 0, 0)
+    {_p}.setVelocity({_zero})
+
+    set {bridge::player::%{_p}'s uuid%::respawn_protection} to true
+    wait 2 seconds
+    delete {bridge::player::%{_p}'s uuid%::respawn_protection}
+
+# EVENTO OTIMIZADO
+on player move:
+    if {bridge::player::%player's uuid%::state} is not "INGAME":
+        stop
+
+    set {_inst} to {bridge::player::%player's uuid%::instance}
+    if {_inst} is not set:
+        stop
+
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        cancel event
+        stop
+
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        stop
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    
+    if y-coordinate of player < {bridge::arena::%{_arena}%::y-void}:
+        set {_lastAtkName} to {-bridge::player::%player's uuid%::last_attacker_name}
+        set {_lastAtkTime} to {-bridge::player::%player's uuid%::last_attacker_time}
+        set {_validTag} to false
+        if {_lastAtkName} is set:
+            if {_lastAtkTime} is set:
+                set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
+                if {_elapsed} <= 5:
+                    set {_validTag} to true
+        if {_validTag} is true:
+            set {_pAtk} to {_lastAtkName} parsed as offline player
+            if {_pAtk} is online:
+                bridge_respawnPlayer(player, "VOID_KILL", {_lastAtkName})
+            else:
+                bridge_respawnPlayer(player, "VOID", "")
+        else:
+            bridge_respawnPlayer(player, "VOID", "")
+        stop
+
+    set {_team} to {bridge::player::%player's uuid%::team}
+    
+    loop {bridge::arena::%{_arena}%::team::%{_team}%::portals::*}:
+        set {_ownPortal} to bridge_getLoc(loop-value, {_inst})
+        if world of player is world of {_ownPortal}:
+            if distance between location of player and {_ownPortal} <= 2.2:
+                set {_lastAtkName} to {-bridge::player::%player's uuid%::last_attacker_name}
+                set {_lastAtkTime} to {-bridge::player::%player's uuid%::last_attacker_time}
+                set {_validTag} to false
+                if {_lastAtkName} is set:
+                    if {_lastAtkTime} is set:
+                        set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
+                        if {_elapsed} <= 5:
+                            set {_validTag} to true
+                if {_validTag} is true:
+                    bridge_respawnPlayer(player, "VOID_KILL", {_lastAtkName})
+                else:
+                    bridge_respawnPlayer(player, "SELF_PORTAL", "")
+                stop
+
+    set {_enemy} to 1
+    if {_team} is 1:
+        set {_enemy} to 2
+
+    loop {bridge::arena::%{_arena}%::team::%{_enemy}%::portals::*}:
+        set {_goalLoc} to bridge_getLoc(loop-value, {_inst})
+        if world of player is world of {_goalLoc}:
+            if distance between location of player and {_goalLoc} <= 2.2:
+                bridge_scoreGoal({_inst}, player, {_team})
+                stop
+
+function bridge_scoreGoal(inst: text, p: player, team: integer):
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        stop
+
+    set {bridge::instance::%{_inst}%::state} to "GOAL"
+    add 1 to {bridge::instance::%{_inst}%::team::%{_team}%::score}
+    
+    bridge_addStat({_p}, "goals", 1)
+    add 1 to {bridge::player::%{_p}'s uuid%::match_goals}
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_scorerFormatted} to bridge_getFormattedPlayerName({_p})
+    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+
+    set {_tCode1} to bridge_getTeamColorCode({bridge::arena::%{_arena}%::team::1::color})
+    set {_tCode2} to bridge_getTeamColorCode({bridge::arena::%{_arena}%::team::2::color})
+    set {_msgGoal} to "%{bridge::config::prefix}% &a&lGOL! %{_scorerFormatted}% &7marcou o ponto! &8(%{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%&8)"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgGoal} to loop-value
+            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgGoal} to loop-value
+            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+
+    if {bridge::instance::%{_inst}%::golden_goal} is true:
+        bridge_endMatch({_inst}, {_team})
+    else if {bridge::instance::%{_inst}%::team::%{_team}%::score} >= {bridge::arena::%{_arena}%::gols}:
+        bridge_endMatch({_inst}, {_team})
+    else:
+        bridge_startRound({_inst}, {_scorerFormatted})
+
+# ---------------------------------------------------------
+# MAÇÃ DOURADA, ARCO E RECARGA DE FLECHAS
+# ---------------------------------------------------------
+on consume of golden apple:
+    if {bridge::player::%player's uuid%::state} is "INGAME":
+        set {_gInst} to {bridge::player::%player's uuid%::instance}
+        if {bridge::instance::%{_gInst}%::frozen} is true:
+            cancel event
+            stop
+        cancel event
+        remove 1 golden apple from player's inventory
+        player.setHealth(20.0)
+        
+        if {bridge::player::%player's uuid%::gapple_eaten} is not set:
+            set {bridge::player::%player's uuid%::gapple_eaten} to true
+            apply absorption 1 to player for 999 minutes
+            send "%{bridge::config::prefix}% &eMaçã consumida: Vidas extras concedidas!" to player
+        else:
+            send "%{bridge::config::prefix}% &eMaçã consumida: Vida restaurada!" to player
+
+on shoot:
+    if shooter is player:
+        if {bridge::player::%shooter's uuid%::state} is "INGAME":
+            set {_gInst} to {bridge::player::%shooter's uuid%::instance}
+            if {bridge::instance::%{_gInst}%::frozen} is true:
+                cancel event
+                stop
+            wait 3.5 seconds
+            if {bridge::player::%shooter's uuid%::state} is "INGAME":
+                if shooter's inventory does not contain arrow:
+                    set slot 8 of shooter's inventory to 1 arrow
+                    bridge_corePling(shooter, 1.8)
+                    bridge_sendActionBar(shooter, "&a+1 Flecha regenerada!")
+                    send "%{bridge::config::prefix}% &aSua flecha foi regenerada!" to shooter
+
+# ---------------------------------------------------------
+# PERMISSÃO DE DROP E COLETA EXCLUSIVAS PARA ARGILA
+# ---------------------------------------------------------
+on pickup:
+    if {bridge::player::%player's uuid%::state} is "INGAME":
+        set {_gInst} to {bridge::player::%player's uuid%::instance}
+        if {bridge::instance::%{_gInst}%::frozen} is true:
+            cancel event
+            stop
+        if type of event-item is not stained clay:
+            cancel event
+
+on drop:
+    if {bridge::player::%player's uuid%::state} is "INGAME":
+        set {_gInst} to {bridge::player::%player's uuid%::instance}
+        if {bridge::instance::%{_gInst}%::frozen} is true:
+            cancel event
+            stop
+        if type of event-item is not stained clay:
+            cancel event
+
+on inventory click:
+    if {bridge::player::%player's uuid%::state} is "INGAME":
+        if index of event-slot is 36 or 37 or 38 or 39:
+            cancel event
+        if "%click type%" contains "SHIFT":
+            if index of event-slot is 36 or 37 or 38 or 39:
+                cancel event
+
+# ---------------------------------------------------------
+# CONSTRUÇÃO, QUEBRA E PROTEÇÃO DE MAPA
+# ---------------------------------------------------------
+on block place:
+    set {_inst} to {bridge::player::%player's uuid%::instance}
+    if {_inst} is not set:
+        if player is not op:
+            cancel event
+        stop
+
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        cancel event
+        stop
+
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        cancel event
+        stop
+
+    if event-block is not stained clay:
+        cancel event
+        stop
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_orig} to {bridge::arena::%{_arena}%::center}
+    set {_center} to bridge_getLoc({_orig}, {_inst})
+
+    if y-coordinate of event-block > {bridge::arena::%{_arena}%::y-max}:
+        cancel event
+        send "%{bridge::config::erro}% &cAltura máxima atingida!" to player
+        stop
+
+    set {_bx} to floor(x-coordinate of event-block)
+    set {_bz} to floor(z-coordinate of event-block)
+    set {_cx} to floor(x-coordinate of {_center})
+    set {_cz} to floor(z-coordinate of {_center})
+
+    if {bridge::arena::%{_arena}%::axis} is "X":
+        set {_long} to abs({_bx} - {_cx})
+        set {_lat} to abs({_bz} - {_cz})
+    else:
+        set {_long} to abs({_bz} - {_cz})
+        set {_lat} to abs({_bx} - {_cx})
+
+    if {_long} > {bridge::arena::%{_arena}%::limite-ponte}:
+        cancel event
+        send "%{bridge::config::erro}% &cLimite de avanço na ponte atingido!" to player
+        stop
+
+    if {_lat} > {bridge::arena::%{_arena}%::limite-lateral}:
+        cancel event
+        send "%{bridge::config::erro}% &cLimite lateral atingido!" to player
+        stop
+
+    if {bridge::instance::%{_inst}%::placed_blocks::*} does not contain location of event-block:
+        add location of event-block to {bridge::instance::%{_inst}%::placed_blocks::*}
+
+on block break:
+    set {_inst} to {bridge::player::%player's uuid%::instance}
+    if {_inst} is not set:
+        if player is not op:
+            cancel event
+        stop
+
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        cancel event
+        stop
+
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        cancel event
+        stop
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_orig} to {bridge::arena::%{_arena}%::center}
+    set {_center} to bridge_getLoc({_orig}, {_inst})
+
+    set {_bx} to floor(x-coordinate of event-block)
+    set {_bz} to floor(z-coordinate of event-block)
+    set {_cx} to floor(x-coordinate of {_center})
+    set {_cz} to floor(z-coordinate of {_center})
+
+    if {bridge::arena::%{_arena}%::axis} is "X":
+        set {_long} to abs({_bx} - {_cx})
+        set {_lat} to abs({_bz} - {_cz})
+    else:
+        set {_long} to abs({_bz} - {_cz})
+        set {_lat} to abs({_bx} - {_cx})
+
+    if {bridge::instance::%{_inst}%::placed_blocks::*} contains location of event-block:
+        remove location of event-block from {bridge::instance::%{_inst}%::placed_blocks::*}
+        stop
+
+    if event-block is stained clay:
+        if {_long} <= {bridge::arena::%{_arena}%::limite-ponte}:
+            if {_lat} <= 1:
+                set {_bData} to data value of event-block
+                set {_t1_col} to {bridge::arena::%{_arena}%::team::1::color}
+                set {_t2_col} to {bridge::arena::%{_arena}%::team::2::color}
+                
+                if {_bData} is 0:
+                    stop
+                if {_t1_col} is set:
+                    if {_bData} is {_t1_col}:
+                        stop
+                if {_t2_col} is set:
+                    if {_bData} is {_t2_col}:
+                        stop
+
+    cancel event
+
+# ---------------------------------------------------------
+# COMBATE, TAGGING DE ATACANTE E RESPAWN
+# ---------------------------------------------------------
+on damage:
+    if victim is player:
+        set {_inst} to {bridge::player::%victim's uuid%::instance}
+        
+        if {_inst} is not set:
+            cancel event
+            stop
+
+        if {bridge::instance::%{_inst}%::frozen} is true:
+            cancel event
+            stop
+
+        if {bridge::instance::%{_inst}%::state} is not "INGAME":
+            cancel event
+            stop
+
+        if {bridge::player::%victim's uuid%::respawn_protection} is set:
+            cancel event
+            if attacker is player:
+                send "%{bridge::config::erro}% &cEste jogador está sob proteção de renascimento!" to attacker
+            stop
+
+        if damage cause is fall:
+            cancel event
+            stop
+
+        if attacker is player:
+            if attacker is not victim:
+                set {-bridge::player::%victim's uuid%::last_attacker_name} to name of attacker
+                set {-bridge::player::%victim's uuid%::last_attacker_time} to (unix timestamp of now)
+
+        if damage cause is void:
+            cancel event
+            set {_lastAtkName} to {-bridge::player::%victim's uuid%::last_attacker_name}
+            set {_lastAtkTime} to {-bridge::player::%victim's uuid%::last_attacker_time}
+            set {_validTag} to false
+            if {_lastAtkName} is set:
+                if {_lastAtkTime} is set:
+                    set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
+                    if {_elapsed} <= 5:
+                        set {_validTag} to true
+            if {_validTag} is true:
+                set {_pAtk} to {_lastAtkName} parsed as offline player
+                if {_pAtk} is online:
+                    bridge_respawnPlayer(victim, "VOID_KILL", {_lastAtkName})
+                else:
+                    bridge_respawnPlayer(victim, "VOID", "")
+            else:
+                bridge_respawnPlayer(victim, "VOID", "")
+            stop
+
+        if damage >= victim's health:
+            cancel event
+            if attacker is player:
+                bridge_respawnPlayer(victim, "KILL", name of attacker)
+            else:
+                set {_lastAtkName} to {-bridge::player::%victim's uuid%::last_attacker_name}
+                set {_lastAtkTime} to {-bridge::player::%victim's uuid%::last_attacker_time}
+                set {_validTag} to false
+                if {_lastAtkName} is set:
+                    if {_lastAtkTime} is set:
+                        set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
+                        if {_elapsed} <= 5:
+                            set {_validTag} to true
+                if {_validTag} is true:
+                    bridge_respawnPlayer(victim, "KILL", {_lastAtkName})
+                else:
+                    bridge_respawnPlayer(victim, "KILL", "")
+
+# ---------------------------------------------------------
+# DESCONEXÃO NATIVA VIA EVENTO ON QUIT
+# ---------------------------------------------------------
+function bridge_checkDisconnectState(inst: text, team: integer, dcName: text):
+    set {_onlineCount} to bridge_presentCount({_inst}, {_team})
+    set {_totalCount} to {bridge::instance::%{_inst}%::team::%{_team}%::initial_size}
+
+    if {_totalCount} > 0:
+        if ({_onlineCount} / {_totalCount}) >= 0.5:
+            set {_msg} to "%{bridge::config::prefix}% &c%{_dcName}% &cdesconectou. A partida continua!"
+            loop {bridge::instance::%{_inst}%::team::1::players::*}:
+                if bridge_isPresent(loop-value, {_inst}) is true:
+                    send {_msg} to loop-value
+            loop {bridge::instance::%{_inst}%::team::2::players::*}:
+                if bridge_isPresent(loop-value, {_inst}) is true:
+                    send {_msg} to loop-value
+            stop
+
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        set {_msg} to "%{bridge::config::prefix}% &c%{_dcName}% &csaiu durante a espera. O prazo atual continua."
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        stop
+
+    if {bridge::instance::%{_inst}%::in_pause} is true:
+        stop
+
+    set {_used} to {bridge::instance::%{_inst}%::pauses::%{_team}%}
+    if {_used} is not set:
+        set {_used} to 0
+
+    if {_used} >= 3:
+        if {_onlineCount} <= 0:
+            set {_winner} to 2
+            if {_team} is 2:
+                set {_winner} to 1
+            bridge_endMatch({_inst}, {_winner})
+            stop
+        set {_msg} to "%{bridge::config::prefix}% &c%{_dcName}% &csaiu e o time não tem mais pausas. A partida continua."
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send {_msg} to loop-value
+        stop
+
+    add 1 to {bridge::instance::%{_inst}%::pauses::%{_team}%}
+    set {bridge::instance::%{_inst}%::frozen} to true
+    set {bridge::instance::%{_inst}%::freeze_reason} to "DISCONNECT"
+    set {bridge::instance::%{_inst}%::freeze_team} to {_team}
+    set {bridge::instance::%{_inst}%::freeze_player_name} to {_dcName}
+    set {bridge::instance::%{_inst}%::freeze_timer} to 30
+
+    set {_msg} to "%{bridge::config::prefix}% &c&lJOGADOR DESCONECTADO! &e%{_dcName}% &7saiu. Partida congelada no local (&f30s&7)."
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msg} to loop-value
+            bridge_coreTitle(loop-value, "&c&lJOGADOR DESCONECTADO", "&7Aguardando %{_dcName}%", 40)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msg} to loop-value
+            bridge_coreTitle(loop-value, "&c&lJOGADOR DESCONECTADO", "&7Aguardando %{_dcName}%", 40)
+
+
+function bridge_handleDisconnectTimeout(inst: text):
+    set {_winner} to 1
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            set {_winner} to 1
+            exit loop
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            set {_winner} to 2
+            exit loop
+
+    set {_msgWO} to "%{bridge::config::prefix}% &cTempo de reconexão esgotado! Vitória por W.O.!"
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgWO} to loop-value
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgWO} to loop-value
+
+    bridge_endMatch({_inst}, {_winner})
+
+# ---------------------------------------------------------
+# FIM DE PARTIDA E RESET
+# ---------------------------------------------------------
+function bridge_endMatch(inst: text, winnerTeam: integer):
+    set {_state} to {bridge::instance::%{_inst}%::state}
+    set {_canEnd} to false
+    if {_state} is "STARTING":
+        set {_canEnd} to true
+    if {_state} is "CAGE":
+        set {_canEnd} to true
+    if {_state} is "INGAME":
+        set {_canEnd} to true
+    if {_state} is "GOAL":
+        set {_canEnd} to true
+
+    if {_canEnd} is false:
+        stop
+
+    set {_closingId} to {bridge::instance::%{_inst}%::match_id}
+    if {_closingId} is not set:
+        stop
+
+    loop 2 times:
+        set {_t} to loop-value
+        loop {bridge::instance::%{_inst}%::team::%{_t}%::players::*}:
+            set {_member} to loop-value-2
+            set {_mu} to {_member}'s uuid
+            if {bridge::return::%{_mu}%::instance} is {_inst}:
+                if {bridge::return::%{_mu}%::match_id} is {_closingId}:
+                    delete {bridge::return::%{_mu}%::*}
+    delete {bridge::instance::%{_inst}%::resume_active}
+
+    set {bridge::instance::%{_inst}%::state} to "CELEBRATION"
+    set {bridge::instance::%{_inst}%::closing_id} to {_closingId}
+    delete {bridge::instance::%{_inst}%::match_id}
+
+    remove {_inst} from {bridge::core::active_instances::*}
+    bridge_removeCage({_inst})
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        bridge_addStat(loop-value, "games", 1)
+        if {_winnerTeam} is 1:
+            bridge_addStat(loop-value, "wins", 1)
+        else if {_winnerTeam} is 2:
+            bridge_addStat(loop-value, "losses", 1)
+
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        bridge_addStat(loop-value, "games", 1)
+        if {_winnerTeam} is 2:
+            bridge_addStat(loop-value, "wins", 1)
+        else if {_winnerTeam} is 1:
+            bridge_addStat(loop-value, "losses", 1)
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    if {_winnerTeam} > 0:
+        set {_winColorData} to {bridge::arena::%{_arena}%::team::%{_winnerTeam}%::color}
+        set {_winTeamName} to bridge_getTeamName({_winColorData})
+        set {_msgEnd} to "%{bridge::config::prefix}% &a&lFIM DE PARTIDA! &7O %{_winTeamName}% &7venceu o jogo!"
+        set {_subEnd} to "&7O %{_winTeamName}% &7venceu a partida!"
+    else:
+        set {_msgEnd} to "%{bridge::config::prefix}% &e&lFIM DE PARTIDA! &7A partida terminou em &e&lEMPATE&7!"
+        set {_subEnd} to "&7A partida terminou em EMPATE!"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aFIM DE PARTIDA!", {_subEnd}, 60)
+            send {_msgEnd} to loop-value
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aFIM DE PARTIDA!", {_subEnd}, 60)
+            send {_msgEnd} to loop-value
+
+    wait 4 seconds
+
+    if {bridge::instance::%{_inst}%::closing_id} is not {_closingId}:
+        stop
+
+    set {bridge::instance::%{_inst}%::state} to "RESETTING"
+    set {_lobby} to {bridge::config::lobby}
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        set {_p} to loop-value
+        if {bridge::player::%{_p}'s uuid%::instance} is {_inst}:
+            if {_p} is online:
+                clear {_p}'s inventory
+                {_p}.setHealth(20.0)
+                {_p}.setFoodLevel(20)
+                {_p}.setFallDistance(0)
+                set {_zero} to new Vector(0, 0, 0)
+                {_p}.setVelocity({_zero})
+                
+                remove regeneration from {_p}
+                remove absorption from {_p}
+                
+                set {_inv} to {_p}.getInventory()
+                {_inv}.setHelmet(null)
+                {_inv}.setChestplate(null)
+                {_inv}.setLeggings(null)
+                {_inv}.setBoots(null)
+                
+                teleport {_p} to {_lobby}
+                set {_p}'s gamemode to adventure
+            delete {bridge::player::%{_p}'s uuid%::match_kills}
+            delete {bridge::player::%{_p}'s uuid%::match_goals}
+            delete {bridge::player::%{_p}'s uuid%::*}
+
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        set {_p} to loop-value
+        if {bridge::player::%{_p}'s uuid%::instance} is {_inst}:
+            if {_p} is online:
+                clear {_p}'s inventory
+                {_p}.setHealth(20.0)
+                {_p}.setFoodLevel(20)
+                {_p}.setFallDistance(0)
+                set {_zero} to new Vector(0, 0, 0)
+                {_p}.setVelocity({_zero})
+                
+                remove regeneration from {_p}
+                remove absorption from {_p}
+                
+                set {_inv} to {_p}.getInventory()
+                {_inv}.setHelmet(null)
+                {_inv}.setChestplate(null)
+                {_inv}.setLeggings(null)
+                {_inv}.setBoots(null)
+                
+                teleport {_p} to {_lobby}
+                set {_p}'s gamemode to adventure
+            delete {bridge::player::%{_p}'s uuid%::match_kills}
+            delete {bridge::player::%{_p}'s uuid%::match_goals}
+            delete {bridge::player::%{_p}'s uuid%::*}
+
+    delete {bridge::instance::%{_inst}%::time_remaining}
+    delete {bridge::instance::%{_inst}%::frozen}
+    delete {bridge::instance::%{_inst}%::in_pause}
+    delete {bridge::instance::%{_inst}%::pause_request_team}
+    delete {bridge::instance::%{_inst}%::pause_timer}
+    delete {bridge::instance::%{_inst}%::freeze_reason}
+    delete {bridge::instance::%{_inst}%::freeze_player_name}
+    delete {bridge::instance::%{_inst}%::freeze_timer}
+    delete {bridge::instance::%{_inst}%::freeze_team}
+    delete {bridge::instance::%{_inst}%::resume_active}
+    delete {bridge::instance::%{_inst}%::golden_goal}
+    delete {bridge::instance::%{_inst}%::golden_goal_voted}
+    delete {bridge::instance::%{_inst}%::pauses::1}
+    delete {bridge::instance::%{_inst}%::pauses::2}
+    delete {bridge::instance::%{_inst}%::voting::*}
+    delete {bridge::instance::%{_inst}%::team::1::players::*}
+    delete {bridge::instance::%{_inst}%::team::2::players::*}
+    delete {bridge::instance::%{_inst}%::placed_blocks::*}
+
+    delete {bridge::instance::%{_inst}%::members::*}
+    delete {bridge::instance::%{_inst}%::team::1::initial_size}
+    delete {bridge::instance::%{_inst}%::team::2::initial_size}
+    set {_ok} to bridge_resetInstance({_inst})
+    delete {bridge::instance::%{_inst}%::closing_id}
+
+    if {_ok} is true:
+        set {bridge::instance::%{_inst}%::state} to "IDLE"
+    else:
+        remove {_inst} from {bridge::instances::free::*}
+        set {bridge::instance::%{_inst}%::state} to "DISABLED"
+
+on quit:
+    set {_uuid} to player's uuid
+    if {bridge::player::%{_uuid}%::state} is "QUEUE":
+        set {_arena} to {bridge::player::%{_uuid}%::queue_arena}
+        remove player from {bridge::queue::%{_arena}%::*}
+        delete {bridge::player::%{_uuid}%::*}
+        stop
+    bridge_markAbsent(player)
