@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261102T043148Z-43D10E28",
+  "status": "GERADA",
+  "created_at": "2026-11-02T04:31:48.1697030Z",
+  "base_commit": "9cc9038743a28c20111ec32436753a418ec28bf9",
+  "objective": "Publicacao inicial do prompt permanente do gerente e orientacao de uso",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "path": "PROMPT-GERENTE.md",
+      "sha256_normalized_utf8_lf": "41d80f472b4824696172d835372ec3ccfbb8f942e8ea40c91c789a3bfe9c5c2a"
+    },
+    {
+      "path": "README.md",
+      "sha256_normalized_utf8_lf": "e5f95755cf50ffb3f01ad0517f566698571be74219840241ef877d48d4464d01"
+    }
+  ],
+  "changes": [
+    "Prompt permanente copiado sem marcadores, instrucao temporaria ou cabecalho adicional",
+    "Ligacao de uso apos prompt integral do operario e cabecalho README atualizado"
+  ],
+  "must_preserve": [
+    "PROMPT-NOVO-CHAT.md e reproducao integral do operario",
+    "Restante do README fora da insercao/cabecalho",
+    "Todas as alteracoes locais do operario, sem stage, descarte ou publicacao por esta tarefa"
+  ],
+  "dependencies": [
+    "README referencia PROMPT-GERENTE.md"
+  ],
+  "tests_performed": [
+    "Conferencia de base, hashes e backups",
+    "Comparacao reversa da insercao e cabecalho com README original"
+  ],
+  "tests_pending": [
+    "Conferir gravacao local e commit remoto",
+    "Publicar registro em ai-deliveries; registro remoto pendente"
+  ],
+  "relates_to": [],
+  "registration_note": "REGISTRO REMOTO PENDENTE: fallback local desta migracao escrito pelo MCP, sem transporte manual; nao comprova publicacao do ledger"
+}

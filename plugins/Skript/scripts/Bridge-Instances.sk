@@ -1,3 +1,6 @@
+# Bridge-Delivery-ID: TB-20261102T042106Z-980FBB1E
+# Bridge-Base-Commit: 9cc9038743a28c20111ec32436753a418ec28bf9
+# Fechamento 2: instâncias e bloqueio durante cadastro; geometria preservada.
 # ==================================================================
 # THE BRIDGE - GERENCIADOR DE INSTÂNCIAS PRÉ-ALOCADAS (FIX ORIGIN/VOID)
 # ==================================================================
@@ -24,6 +27,9 @@ command /bridgereset [<text>]:
         if arg-1 is not set:
             send "%{bridge::config::erro}% &cUse: /bridgereset <instância> (Ex: /bridgereset Urban_1)" to executor
             stop
+        if bridge_instanceBusy(arg-1) is true:
+            send "%{bridge::config::erro}% &cReset recusado: instância em uso ou em transição." to executor
+            stop
         set {_ok} to bridge_resetInstance(arg-1)
         if {_ok} is true:
             send "%{bridge::config::sucesso}% &aInstância &f%arg-1%&a resetada e colada com sucesso!" to executor
@@ -34,6 +40,8 @@ command /bridgereset [<text>]:
 # MOTOR DE COLAGEM COM ALINHAMENTO AUTOMÁTICO DE ORIGEM
 # ---------------------------------------------------------
 function bridge_pasteSchematic(arena: text, offsetX: number, offsetY: number, offsetZ: number) :: boolean:
+    if {-bridge::setup::%{_arena}%::active} is true:
+        return false
     # 1. Busca pelo arquivo schematic
     set {_file} to new File("plugins/FastAsyncWorldEdit/schematics/bridge_%{_arena}%.schematic")
     if {_file}.exists() is false:
@@ -62,23 +70,37 @@ function bridge_pasteSchematic(arena: text, offsetX: number, offsetY: number, of
     set {_targetY} to {_cy} + {_offsetY}
     set {_targetZ} to {_cz} + {_offsetZ}
 
-    # Carregamento prévio das chunks de destino
-    set {_chunkCenterX} to floor({_targetX} / 16)
-    set {_chunkCenterZ} to floor({_targetZ} / 16)
-    loop integers from -8 to 8:
-        set {_chkX} to {_chunkCenterX} + loop-value
-        loop integers from -8 to 8:
-            set {_chkZ} to {_chunkCenterZ} + loop-value-2
-            {_w}.getChunkAt({_chkX}, {_chkZ}).load(true)
-
     set {_bukkitWorld} to new BukkitWorld({_w})
     set {_worldData} to {_bukkitWorld}.getWorldData()
-    
     set {_format} to ClipboardFormat.findByFile({_file})
+    if {_format} is not set:
+        send "[Bridge] ERRO: formato de schematic não reconhecido para %{_arena}%." to console
+        return false
     set {_stream} to new FileInputStream({_file})
     set {_reader} to {_format}.getReader({_stream})
     set {_clipboard} to {_reader}.read({_worldData})
     {_stream}.close()
+    if {_clipboard} is not set:
+        send "[Bridge] ERRO: clipboard indisponível para %{_arena}%." to console
+        return false
+
+    # Intervalo calculado do clipboard real, preservando a tradução de origem.
+    set {_region} to {_clipboard}.getRegion()
+    set {_minimum} to {_region}.getMinimumPoint()
+    set {_maximum} to {_region}.getMaximumPoint()
+    set {_minCX} to floor(({_minimum}.getBlockX() + floor({_targetX}) - floor({_cx})) / 16)
+    set {_maxCX} to floor(({_maximum}.getBlockX() + floor({_targetX}) - floor({_cx})) / 16)
+    set {_minCZ} to floor(({_minimum}.getBlockZ() + floor({_targetZ}) - floor({_cz})) / 16)
+    set {_maxCZ} to floor(({_maximum}.getBlockZ() + floor({_targetZ}) - floor({_cz})) / 16)
+    loop integers from {_minCX} to {_maxCX}:
+        set {_chunkX} to loop-value
+        loop integers from {_minCZ} to {_maxCZ}:
+            set {_chunkZ} to loop-value-2
+            set {_chunk} to {_w}.getChunkAt({_chunkX}, {_chunkZ})
+            set {_loaded} to {_chunk}.load(true)
+            if {_chunk}.isLoaded() is false:
+                send "[Bridge] ERRO: chunk %{_chunkX}%,%{_chunkZ}% não carregou para %{_arena}%." to console
+                return false
 
     # CORREÇÃO CRÍTICA: Força a origem da schematic a ser exatamente o centro cadastrado
     set {_origVec} to new Vector({_cx}, {_cy}, {_cz})
@@ -98,12 +120,12 @@ function bridge_pasteSchematic(arena: text, offsetX: number, offsetY: number, of
     Operations.complete({_operation})
     {_editSession}.flushQueue()
 
-    # Atualização de render das chunks para os jogadores
-    loop integers from -8 to 8:
-        set {_chkX} to {_chunkCenterX} + loop-value
-        loop integers from -8 to 8:
-            set {_chkZ} to {_chunkCenterZ} + loop-value-2
-            {_w}.refreshChunk({_chkX}, {_chkZ})
+    # Atualização restrita aos mesmos chunks do destino.
+    loop integers from {_minCX} to {_maxCX}:
+        set {_chunkX} to loop-value
+        loop integers from {_minCZ} to {_maxCZ}:
+            set {_chunkZ} to loop-value-2
+            {_w}.refreshChunk({_chunkX}, {_chunkZ})
 
     return true
 
@@ -111,36 +133,49 @@ function bridge_pasteSchematic(arena: text, offsetX: number, offsetY: number, of
 # CRIADOR DE INSTÂNCIAS
 # ---------------------------------------------------------
 function bridge_expandInstances(arena: text, amount: integer):
+    if {-bridge::setup::%{_arena}%::active} is true:
+        stop
+    if {_amount} <= 0:
+        stop
+    if {-bridge::instance_expanding::%{_arena}%} is true:
+        stop
+    set {_retry} to {-bridge::expand_retry_at::%{_arena}%}
+    if {_retry} is set:
+        if (unix timestamp of now) < {_retry}:
+            stop
     set {_w} to {bridge::arena::%{_arena}%::world}
     if {_w} is not set:
-        send "[Bridge] ERRO: Arena %{_arena}% não encontrada no cadastro." to console
+        send "[Bridge] ERRO: Arena %{_arena}% não cadastrada." to console
         stop
-
-    set {_currentCount} to size of {bridge::arena::%{_arena}%::instances::*}
-    
+    set {-bridge::instance_expanding::%{_arena}%} to true
+    if {bridge::arena::%{_arena}%::instance_serial} is not set:
+        set {bridge::arena::%{_arena}%::instance_serial} to size of {bridge::arena::%{_arena}%::instances::*}
     loop {_amount} times:
-        set {_idNum} to {_currentCount} + loop-value
+        add 1 to {bridge::arena::%{_arena}%::instance_serial}
+        set {_idNum} to {bridge::arena::%{_arena}%::instance_serial}
         set {_idText} to "%{_arena}%_%{_idNum}%"
-        
+        while {bridge::instance::%{_idText}%::arena} is set:
+            add 1 to {bridge::arena::%{_arena}%::instance_serial}
+            set {_idNum} to {bridge::arena::%{_arena}%::instance_serial}
+            set {_idText} to "%{_arena}%_%{_idNum}%"
         set {_offsetX} to {_idNum} * 1000
-        set {_offsetY} to 0
-        set {_offsetZ} to 0
-        
-        set {_success} to bridge_pasteSchematic({_arena}, {_offsetX}, {_offsetY}, {_offsetZ})
-        
+        set {_success} to bridge_pasteSchematic({_arena}, {_offsetX}, 0, 0)
         if {_success} is true:
             set {bridge::instance::%{_idText}%::arena} to {_arena}
             set {bridge::instance::%{_idText}%::offsetX} to {_offsetX}
-            set {bridge::instance::%{_idText}%::offsetY} to {_offsetY}
-            set {bridge::instance::%{_idText}%::offsetZ} to {_offsetZ}
-            
+            set {bridge::instance::%{_idText}%::offsetY} to 0
+            set {bridge::instance::%{_idText}%::offsetZ} to 0
+            set {bridge::instance::%{_idText}%::state} to "IDLE"
+            set {bridge::instance::%{_idText}%::ready} to true
             add {_idText} to {bridge::arena::%{_arena}%::instances::*}
             if {bridge::instances::free::*} does not contain {_idText}:
                 add {_idText} to {bridge::instances::free::*}
-            
-            send "[Bridge] Instância %{_idText}% pré-alocada em X:%{_offsetX}% no mundo '%{_w}%'" to console
+            send "[Bridge] Instância %{_idText}% preparada em X:%{_offsetX}%." to console
         else:
-            send "[Bridge] ERRO: Falha ao colar schematic para a instância %{_idText}%." to console
+            send "[Bridge] ERRO: %{_idText}% não foi cadastrada nem liberada por falha de colagem." to console
+            set {-bridge::expand_retry_at::%{_arena}%} to (unix timestamp of now) + 30
+            exit loop
+    delete {-bridge::instance_expanding::%{_arena}%}
 
 # ---------------------------------------------------------
 # RESETADOR DE INSTÂNCIAS
@@ -150,26 +185,45 @@ function bridge_resetInstance(id: text) :: boolean:
     if {_arena} is not set:
         send "[Bridge] ERRO: Instância %{_id}% não cadastrada." to console
         return false
-
+    if {bridge::arena::%{_arena}%::instances::*} does not contain {_id}:
+        send "[Bridge] ERRO: Instância %{_id}% não pertence à lista da arena." to console
+        return false
+    if {-bridge::setup::%{_arena}%::active} is true:
+        return false
+    if {bridge::instance::%{_id}%::match_id} is set:
+        send "[Bridge] ERRO: reset recusado em sessão ativa: %{_id}%." to console
+        return false
+    set {_state} to {bridge::instance::%{_id}%::state}
+    if {_state} is set:
+        if {_state} is not "IDLE":
+            if {_state} is not "DISABLED":
+                if {_state} is not "RESETTING":
+                    send "[Bridge] ERRO: fase incompatível com reset: %{_id}% (%{_state}%)." to console
+                    return false
     set {_ox} to {bridge::instance::%{_id}%::offsetX}
     set {_oy} to {bridge::instance::%{_id}%::offsetY}
     set {_oz} to {bridge::instance::%{_id}%::offsetZ}
-
     if {_ox} is not set:
-        set {_ox} to 1000
-        set {_oy} to 0
-        set {_oz} to 0
-
+        return false
+    if {_oy} is not set:
+        return false
+    if {_oz} is not set:
+        return false
+    remove {_id} from {bridge::instances::free::*}
+    set {bridge::instance::%{_id}%::state} to "RESETTING"
+    set {bridge::instance::%{_id}%::ready} to false
     set {_success} to bridge_pasteSchematic({_arena}, {_ox}, {_oy}, {_oz})
-    
     if {_success} is true:
+        set {bridge::instance::%{_id}%::state} to "IDLE"
+        set {bridge::instance::%{_id}%::ready} to true
         if {bridge::instances::free::*} does not contain {_id}:
             add {_id} to {bridge::instances::free::*}
-        send "[Bridge] Instância %{_id}% resetada e colada com sucesso em X:%{_ox}%" to console
+        send "[Bridge] Instância %{_id}% restaurada e liberada." to console
         return true
-    else:
-        send "[Bridge] ERRO: Falha ao resetar a instância %{_id}%." to console
-        return false
+    set {bridge::instance::%{_id}%::state} to "DISABLED"
+    set {bridge::instance::%{_id}%::ready} to false
+    send "[Bridge] ERRO: %{_id}% não foi liberada após falha de reset." to console
+    return false
 
 # ---------------------------------------------------------
 # TRADUTOR DE COORDENADAS PARA O MOTOR DE JOGO (PRESERVA YAW/PITCH)
@@ -191,3 +245,37 @@ function bridge_getLoc(loc: location, id: text) :: location:
     set pitch of {_res} to {_pitch}
     
     return {_res}
+# Consulta conservadora: serve para comandos administrativos; não realiza reset.
+function bridge_instanceBusy(id: text) :: boolean:
+    set {_arena} to {bridge::instance::%{_id}%::arena}
+    if {_arena} is set:
+        if {-bridge::setup::%{_arena}%::active} is true:
+            return true
+    if {bridge::instance::%{_id}%::match_id} is set:
+        return true
+    if {bridge::instance::%{_id}%::closing_id} is set:
+        return true
+    set {_state} to {bridge::instance::%{_id}%::state}
+    if {_state} is not set:
+        return false
+    if {_state} is "IDLE" or "DISABLED":
+        return false
+    return true
+
+# Reposição automática da reserva, apenas quando há sessão ativa nessa arena.
+every 5 seconds:
+    loop {bridge::arenas::*}:
+        set {_arena} to loop-value
+        set {_active} to false
+        set {_free} to 0
+        loop {bridge::arena::%{_arena}%::instances::*}:
+            set {_id} to loop-value-2
+            if {bridge::instance::%{_id}%::match_id} is set:
+                set {_active} to true
+            if {bridge::instances::free::*} contains {_id}:
+                if bridge_instanceBusy({_id}) is false:
+                    if {bridge::instance::%{_id}%::ready} is not false:
+                        add 1 to {_free}
+        if {_active} is true:
+            if {_free} < 1:
+                bridge_expandInstances({_arena}, 1)

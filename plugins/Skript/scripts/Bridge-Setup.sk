@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
-# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
+# Bridge-Delivery-ID: TB-20261102T042106Z-980FBB1E
+# Bridge-Base-Commit: 9cc9038743a28c20111ec32436753a418ec28bf9
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -12,6 +12,10 @@ import:
     org.bukkit.inventory.ItemStack
     java.util.ArrayList
     java.io.File
+    java.io.FileInputStream as BridgeSetupInput
+    java.util.UUID as BridgeSetupUUID
+    com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat as BridgeSetupFormat
+    com.sk89q.worldedit.bukkit.BukkitWorld as BridgeSetupWorld
 
 # ---------------------------------------------------------
 # HELPER DE ITEM VIA BUKKIT API (BLINDADO CONTRA ERROS DE SKRIPT)
@@ -363,6 +367,12 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 stop
             
             set {_name} to arg-2
+            if {_name}.matches("[A-Za-z0-9_-]+") is false:
+                send "%{bridge::config::erro}% &cUse letras sem acentos, números, hífen ou sublinhado no nome da arena." to player
+                stop
+            if bridge_setupArenaBusy({_name}) is true:
+                send "%{bridge::config::erro}% &cCadastro recusado: há instância em uso, transição ou operação pendente nesta arena." to player
+                stop
             set {_w} to player's world
             
             send "%{bridge::config::prefix}% &eCadastro &8| &f%{_name}% &7no mundo %{_w}%" to player
@@ -474,6 +484,137 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 set yaw of {_t1_sponge} to 0
                 set yaw of {_t2_sponge} to 180
 
+            # Só a sessão ativa do WorldEdit pode produzir uma clipboard nova.
+            set {_wePlugin} to Bukkit.getPluginManager().getPlugin("WorldEdit")
+            if {_wePlugin} is not set:
+                send "%{bridge::config::erro}% &cWorldEdit indisponível. Cadastro anterior preservado." to player
+                stop
+            set {_weSession} to try {_wePlugin}.getSession(player)
+            if {_weSession} is not set:
+                send "%{bridge::config::erro}% &cNão foi possível obter a sessão WorldEdit. Nada substituído." to player
+                stop
+            if bridge_setupArenaBusy({_name}) is true:
+                send "%{bridge::config::erro}% &cA arena ficou ocupada. Cadastro anterior preservado." to player
+                stop
+            set {_token} to BridgeSetupUUID.randomUUID().toString()
+            set {_candidateName} to "bridge_%{_name}%__candidate_%{_token}%"
+            set {_faweCandidate} to new File("plugins/FastAsyncWorldEdit/schematics/%{_candidateName}%.schematic")
+            set {_weCandidate} to new File("plugins/WorldEdit/schematics/%{_candidateName}%.schematic")
+            if {_faweCandidate}.exists() is true:
+                stop
+            if {_weCandidate}.exists() is true:
+                stop
+            set {-bridge::setup::%{_name}%::active} to true
+            set {-bridge::setup::%{_name}%::token} to {_token}
+            loop {bridge::arena::%{_name}%::instances::*}:
+                if {bridge::instances::free::*} contains loop-value:
+                    add loop-value to {-bridge::setup::%{_name}%::saved_free::*}
+                    remove loop-value from {bridge::instances::free::*}
+            set {_old_loc} to player's location
+            set {_previousClipboard} to try {_weSession}.getClipboard()
+            if {_previousClipboard} is not set:
+                set {_previousClipboard} to false
+            {_weSession}.setClipboard(null)
+            teleport player to {_origin}
+            wait 5 ticks
+            if player is not online:
+                bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                stop
+            make player execute command "/wea"
+            wait 2 ticks
+            make player execute command "//pos1 -80,60,-80"
+            wait 2 ticks
+            make player execute command "//pos2 80,140,80"
+            wait 2 ticks
+            make player execute command "//copy"
+            set {_waited} to 0
+            delete {_freshHolder}
+            while {_freshHolder} is not set:
+                set {_freshHolder} to try {_weSession}.getClipboard()
+                if {_freshHolder} is set:
+                    exit loop
+                wait 10 ticks
+                add 0.5 to {_waited}
+                if player is not online:
+                    bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                    stop
+                if {_waited} >= 30:
+                    send "[Bridge] Setup %{_name}%: cópia não concluiu em 30s; cadastro anterior preservado." to console
+                    bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                    stop
+            # Preserva também a espera mínima usada pelo fluxo anterior.
+            wait 3 seconds
+            if player is not online:
+                bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                stop
+            set {_currentHolder} to try {_weSession}.getClipboard()
+            if {_currentHolder} is not {_freshHolder}:
+                send "%{bridge::config::erro}% &cA clipboard mudou durante a cópia. Cadastro anterior preservado." to player
+                bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                stop
+            # Evita anunciar sucesso com uma cópia de outra seleção.
+            set {_freshClip} to {_freshHolder}.getClipboard()
+            set {_freshRegion} to {_freshClip}.getRegion()
+            set {_freshMin} to {_freshRegion}.getMinimumPoint()
+            set {_freshMax} to {_freshRegion}.getMaximumPoint()
+            set {_selectionOk} to true
+            if {_freshMin}.getBlockX() is not -80:
+                set {_selectionOk} to false
+            if {_freshMin}.getBlockY() is not 60:
+                set {_selectionOk} to false
+            if {_freshMin}.getBlockZ() is not -80:
+                set {_selectionOk} to false
+            if {_freshMax}.getBlockX() is not 80:
+                set {_selectionOk} to false
+            if {_freshMax}.getBlockY() is not 140:
+                set {_selectionOk} to false
+            if {_freshMax}.getBlockZ() is not 80:
+                set {_selectionOk} to false
+            if {_selectionOk} is not true:
+                send "%{bridge::config::erro}% &cA cópia não corresponde ao volume do molde. Cadastro anterior preservado." to player
+                bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                stop
+            make player execute command "//schem save %{_candidateName}% -g"
+            set {_waited} to 0
+            delete {_candidate}
+            while {_candidate} is not set:
+                if bridge_setupSchematicValid({_faweCandidate}, {_w}) is true:
+                    set {_candidate} to {_faweCandidate}
+                else if bridge_setupSchematicValid({_weCandidate}, {_w}) is true:
+                    set {_candidate} to {_weCandidate}
+                if {_candidate} is set:
+                    exit loop
+                wait 10 ticks
+                add 0.5 to {_waited}
+                if player is not online:
+                    bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                    stop
+                if {_waited} >= 30:
+                    send "[Bridge] Setup %{_name}%: candidata não validou em 30s; arquivo anterior preservado." to console
+                    bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                    stop
+            if {-bridge::setup::%{_name}%::token} is not {_token}:
+                send "[Bridge] Setup %{_name}% perdeu a identidade da operação. Sem promoção de arquivo." to console
+                stop
+            set {_faweTarget} to new File("plugins/FastAsyncWorldEdit/schematics/bridge_%{_name}%.schematic")
+            set {_weTarget} to new File("plugins/WorldEdit/schematics/bridge_%{_name}%.schematic")
+            if {_faweTarget}.exists() is true:
+                set {_target} to {_faweTarget}
+            else if {_weTarget}.exists() is true:
+                set {_target} to {_weTarget}
+            else:
+                set {_parent} to {_candidate}.getParentFile()
+                set {_target} to new File({_parent}, "bridge_%{_name}%.schematic")
+            set {_promoted} to bridge_setupPromote({_candidate}, {_target}, {_token})
+            if {_promoted} is not true:
+                send "%{bridge::config::erro}% &cNão foi possível promover a nova schematic. Confira o console; cadastro não substituído." to player
+                bridge_setupAbort({_name}, {_token}, {_weSession}, {_previousClipboard}, player, {_old_loc})
+                stop
+            teleport player to {_old_loc}
+            # A partir daqui não há mais espera até terminar a troca do cadastro.
+            # Não restaurar as instâncias antigas à lista livre na confirmação.
+            bridge_setupUnlock({_name}, {_token}, false)
+
             loop {bridge::arena::%{_name}%::instances::*}:
                 delete {bridge::instance::%loop-value%::*}
                 remove loop-value from {bridge::instances::free::*}
@@ -505,35 +646,6 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
             set {bridge::arena::%{_name}%::tempo} to {bridge::config::default_tempo}
             set {bridge::arena::%{_name}%::limite-ponte} to {bridge::config::default_limite_ponte}
             set {bridge::arena::%{_name}%::limite-lateral} to {bridge::config::default_limite_lateral}
-
-            if player is online:
-                set {_old_loc} to player's location
-                teleport player to {_origin}
-                wait 5 ticks
-
-                make player execute command "/wea"
-                wait 2 ticks
-                make player execute command "//pos1 -80,60,-80"
-                wait 2 ticks
-                make player execute command "//pos2 80,140,80"
-                wait 2 ticks
-                make player execute command "//copy"
-                wait 3 seconds
-                make player execute command "//schem save bridge_%{_name}% -g"
-                
-                set {_f1} to new File("plugins/FastAsyncWorldEdit/schematics/bridge_%{_name}%.schematic")
-                set {_f2} to new File("plugins/WorldEdit/schematics/bridge_%{_name}%.schematic")
-                set {_waited} to 0
-                while {_f1}.exists() is false:
-                    if {_f2}.exists() is true:
-                        exit loop
-                    wait 10 ticks
-                    add 0.5 to {_waited}
-                    if {_waited} >= 10:
-                        send "[Bridge] ERRO: Tempo limite excedido ao salvar o schematic!" to console
-                        stop
-                
-                teleport player to {_old_loc}
 
             # RELATÓRIO DO CHAT ESPAÇADO E FORMATADO
             bridge_sendHeader(player, "Resumo do cadastro &8| &f%{_name}%")
@@ -679,3 +791,101 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
             bridge_openMainMenu(player)
         else:
             send "%{bridge::config::erro}% &cSubcomando desconhecido. Use &f/bridge ajuda&c." to player
+
+
+# Sem alteração de geometria: somente proteção da operação de cadastro.
+function bridge_setupArenaBusy(arena: text) :: boolean:
+    if {-bridge::setup::%{_arena}%::active} is true:
+        return true
+    if {-bridge::instance_expanding::%{_arena}%} is true:
+        return true
+    loop {bridge::arena::%{_arena}%::instances::*}:
+        if bridge_instanceBusy(loop-value) is true:
+            return true
+    loop {bridge::core::active_instances::*}:
+        set {_id} to loop-value
+        if {bridge::instance::%{_id}%::arena} is {_arena}:
+            return true
+    return false
+
+function bridge_setupUnlock(arena: text, token: text, restoreFree: boolean):
+    if {-bridge::setup::%{_arena}%::token} is not {_token}:
+        stop
+    if {_restoreFree} is true:
+        loop {-bridge::setup::%{_arena}%::saved_free::*}:
+            set {_id} to loop-value
+            if {bridge::instance::%{_id}%::arena} is {_arena}:
+                if {bridge::instance::%{_id}%::match_id} is not set:
+                    if {bridge::instance::%{_id}%::closing_id} is not set:
+                        if {bridge::instances::free::*} does not contain {_id}:
+                            add {_id} to {bridge::instances::free::*}
+    delete {-bridge::setup::%{_arena}%::*}
+
+function bridge_setupAbort(arena: text, token: text, session: object, previous: object, p: player, origin: location):
+    if {_previous} is false:
+        {_session}.setClipboard(null)
+    else:
+        {_session}.setClipboard({_previous})
+    if {_p} is online:
+        teleport {_p} to {_origin}
+    bridge_setupUnlock({_arena}, {_token}, true)
+
+# Lê integralmente uma candidata nova; existir um arquivo antigo não aprova esta etapa.
+function bridge_setupSchematicValid(file: object, w: object) :: boolean:
+    if {_file}.isFile() is false:
+        return false
+    if {_file}.length() <= 0:
+        return false
+    set {_format} to try BridgeSetupFormat.findByFile({_file})
+    if {_format} is not set:
+        return false
+    set {_stream} to try new BridgeSetupInput({_file})
+    if {_stream} is not set:
+        return false
+    set {_reader} to try {_format}.getReader({_stream})
+    if {_reader} is not set:
+        {_stream}.close()
+        return false
+    set {_weWorld} to new BridgeSetupWorld({_w})
+    set {_data} to {_weWorld}.getWorldData()
+    set {_clip} to try {_reader}.read({_data})
+    {_stream}.close()
+    if {_clip} is not set:
+        return false
+    set {_region} to {_clip}.getRegion()
+    set {_min} to {_region}.getMinimumPoint()
+    set {_max} to {_region}.getMaximumPoint()
+    set {_dx} to {_max}.getBlockX() - {_min}.getBlockX() + 1
+    set {_dy} to {_max}.getBlockY() - {_min}.getBlockY() + 1
+    set {_dz} to {_max}.getBlockZ() - {_min}.getBlockZ() + 1
+    if {_dx} is not 161:
+        return false
+    if {_dy} is not 81:
+        return false
+    if {_dz} is not 161:
+        return false
+    return true
+
+# Promoção com backup retido e rollback explícito em falha de rename.
+function bridge_setupPromote(candidate: object, target: object, token: text) :: boolean:
+    if {_candidate}.isFile() is false:
+        return false
+    set {_hadOld} to {_target}.exists()
+    set {_parent} to {_target}.getParentFile()
+    set {_oldName} to {_target}.getName()
+    set {_backup} to new File({_parent}, "%{_oldName}%.backup-%{_token}%")
+    if {_backup}.exists() is true:
+        return false
+    if {_hadOld} is true:
+        set {_movedOld} to {_target}.renameTo({_backup})
+        if {_movedOld} is not true:
+            send "[Bridge] Setup: não foi possível preservar a schematic anterior. Cadastro não substituído." to console
+            return false
+    set {_promoted} to {_candidate}.renameTo({_target})
+    if {_promoted} is true:
+        return true
+    if {_hadOld} is true:
+        set {_restored} to {_backup}.renameTo({_target})
+        if {_restored} is not true:
+            send "[Bridge] ERRO: rollback do arquivo falhou. Backup preservado em %{_backup}%; alvo: %{_target}%. Não recadastre antes de recuperar." to console
+    return false
