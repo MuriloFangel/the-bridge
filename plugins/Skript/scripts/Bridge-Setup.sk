@@ -1,10 +1,11 @@
-# Bridge-Delivery-ID: TB-20261102T063453Z-D791EED4
+# Bridge-Delivery-ID: TB-20261102T064126Z-C48C588D
 # Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
 
 import:
+    org.bukkit.event.inventory.InventoryDragEvent as BridgeMenuDragEvent
     org.bukkit.block.Block
     org.bukkit.Location
     org.bukkit.Bukkit
@@ -1017,13 +1018,14 @@ function bridge_menuAction(p: player, slot: integer, click: text):
     set {_current} to {bridge::arena::%{_arena}%::%{_prop}%}
     bridge_openModifier({_p}, {_arena}, {_prop}, {_title}, {_current})
 
-on inventory drag:
-    set {_u} to player's uuid
+on BridgeMenuDragEvent:
+    set {_who} to event.getWhoClicked()
+    set {_u} to {_who}.getUniqueId()
     set {_inv} to {-bridge::menu::%{_u}%::inventory}
     if {_inv} is set:
         set {_top} to event.getView().getTopInventory()
         if {_top} is {_inv}:
-            cancel event
+            event.setCancelled(true)
 
 on inventory close:
     set {_u} to player's uuid
