@@ -1,6 +1,6 @@
 #requires -Version 7.2
-# Bridge-Delivery-ID: TB-20261101T060313Z-3982FC66
-# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
+# Bridge-Delivery-ID: TB-20261102T061136Z-1D382738
+# Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3
 [CmdletBinding()]
 param(
     [string]$ProjectPath = 'F:\srv\vibecoding',
@@ -90,6 +90,14 @@ function Assert-RemoteSafe {
     }
 }
 function Stage-And-Check {
+    # BEGIN BRIDGE DOC IMPORT V1
+    $docsRunner=Join-Path $Root 'tools/Bridge-DocsRunner.js'
+    if(-not(Test-Path -LiteralPath $docsRunner -PathType Leaf)){throw 'STOP: Importador documental ausente.'}
+    try {
+        $docsRun=Invoke-Program -Exe (Get-Command node -ErrorAction Stop).Source -Arguments @($docsRunner,'--project',$Root)
+    } catch {throw ('STOP: Importador documental: '+$_.Exception.Message)}
+    if(-not [string]::IsNullOrWhiteSpace($docsRun.Text)){Say $docsRun.Text}
+    # END BRIDGE DOC IMPORT V1
     # BEGIN BRIDGE README MIRROR V1
     $mirror=Join-Path $Root 'tools/Bridge-PromptReadme.ps1'
     if(-not(Test-Path -LiteralPath $mirror -PathType Leaf)){throw 'STOP: helper do prompt/README ausente.'}

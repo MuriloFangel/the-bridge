@@ -1,3 +1,5 @@
+<!-- Bridge-Delivery-ID: TB-20261102T061136Z-1D382738 -->
+<!-- Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3 -->
 # Gerente do projeto The Bridge — continuidade operacional
 
 ## 1. Papel deste chat
@@ -99,38 +101,18 @@ F:\srv
 F:\srv\vibecoding
 F:\srv\vibecoding\plugins\Skript\scripts
 
-### Ordem das etapas
+### Organização vigente das entregas
 
-A ordem definida é:
-1. Capacidades MCP de arquivos, manutenção e recuperação.
-2. Importação automática de documentação.
-3. Painel de inicialização do ambiente.
-4. Consolidação da documentação do ecossistema no GitHub.
-5. WhatsApp SOMENTE POR ÚLTIMO, depois das demais etapas.
+Decisão do administrador em 02/11/2026, posterior ao repasse inicial:
+- Entrega 1: A — importador documental e instruções do operário; B — regularização da rastreabilidade e esclarecimento de divergências relevantes.
+- Entrega 2: C — painel de inicialização no login, com 30 segundos para cancelar; D — encerramento dos componentes e recuperação/persistência da ponte.
+- Entrega 3: E — consolidação documental, prompts e guia curto de uso e recuperação.
 
-A consolidação final não dispensa registros de entrega durante o desenvolvimento.
+Trabalhar por entrega, agrupando passos relacionados. Lotes internos menores são permitidos, mas não transformar cada componente em outra rodada para o administrador. Antes das aprovações, informar brevemente o lote e seu resultado. Manter as confirmações técnicas obrigatórias. Priorizar fechar a entrega 1 antes de C+D.
 
-O administrador já autorizou avançar na implementação do importador documental. Não pergunte novamente qual é a prioridade, salvo se surgir conflito real com uma nova solicitação.
+Aproveitar as evidências pertinentes e fazer verificações essenciais durante a implementação. Não repetir uma rodada geral no final. A inicialização automática será confirmada no próximo login ou reinício normal do administrador; até lá, somente essa confirmação específica permanece pendente após as demais verificações.
 
-### WhatsApp
-
-Intenção futura do administrador:
-- Conversar com gerente e operário pelo WhatsApp, com uma experiência semelhante à conversa atual.
-- Trocar modelo por comando.
-- Anexar arquivos.
-- Receber formatação adequada.
-- Administrar a ponte por esse canal.
-
-Ainda NÃO houve decisão sobre:
-- API paga.
-- Orçamento.
-- Conversas novas separadas dos chats atuais.
-- Quantidade de números/contatos.
-- Provedor de mensagens.
-- Uso de automação de WhatsApp Web.
-- Arquitetura final dessa integração.
-
-Não antecipe essas decisões nem bloqueie o trabalho atual por causa delas.
+WhatsApp foi retirado dos planos. Não manter integração de WhatsApp como etapa futura ou pendência.
 
 ## 4. Autoridade e limites dos papéis
 
@@ -614,7 +596,7 @@ Não apague essas decisões ao regenerar documentos.
 
 ## 14. Importação documental — trabalho técnico atual
 
-O importador AINDA NÃO foi implementado/instalado.
+A implementação do importador foi preparada e verificada em manutenção. O fluxo desta revisão usa tools/Bridge-DocsCore.js, tools/Bridge-DocsStore.js e tools/Bridge-DocsRunner.js, com protocolo em IMPORTADOR-DOCUMENTAL.md. Reconfira instalação e funcionamento por evidência local, recibo e commit remoto; geração e presença dos arquivos não comprovam a conclusão da entrega 1. Os detalhes históricos abaixo devem ser lidos à luz desse protocolo e das decisões posteriores.
 
 Objetivo solicitado:
 operário registra documentação → PC incorpora com segurança → sincronizador publica.

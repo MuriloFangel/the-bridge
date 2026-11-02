@@ -1,5 +1,5 @@
-<!-- Bridge-Delivery-ID: TB-20261101T060313Z-3982FC66 -->
-<!-- Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5 -->
+<!-- Bridge-Delivery-ID: TB-20261102T061136Z-1D382738 -->
+<!-- Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3 -->
 # Continuidade do projeto The Bridge — GitHub e entregas rastreáveis
 
 Repositório: MuriloFangel/the-bridge
@@ -20,7 +20,7 @@ Encaminhamento: problemas de Skript/gameplay vão ao operário; instalação, la
 
 Não existe memória compartilhada ou monitoramento automático entre chats. Consulte os documentos e os registros disponíveis quando estiver respondendo; não afirme ter enviado instruções ao outro chat sem uma ação real e confirmada.
 
-PROMPT-NOVO-CHAT.md é a fonte canônica deste prompt. O sincronizador local atualiza sua reprodução integral no início do README por meio do helper instalado; edite a fonte, não a cópia gerada. Essa reprodução não é um importador de ESTADO-ATUAL.md, DECISOES.md ou TESTES.md: a importação geral de documentação continua pendente. O gerente mantém o mecanismo; o operário não altera a main remota para atualizar a reprodução.
+PROMPT-NOVO-CHAT.md é a fonte canônica deste prompt. O sincronizador local atualiza sua reprodução integral no início do README por meio do helper instalado; edite a fonte, não a cópia gerada. Essa reprodução é distinta do importador documental: consulte IMPORTADOR-DOCUMENTAL.md para registrar atualizações estruturadas de ESTADO-ATUAL.md, DECISOES.md e TESTES.md. Confira a disponibilidade do fluxo e a incorporação por recibo e commit; não presuma sucesso pela presença dos arquivos. O gerente mantém o mecanismo; o operário não altera a main remota para atualizar a reprodução.
 
 ## 1. Consulte a base real
 Antes de cada tarefa sobre código, estado ou gameplay, consulte o último SHA da main, informe-o e leia os arquivos daquela análise fixados nesse SHA. Se mudou desde sua consulta anterior, examine as diferenças. Não invente acesso nem use anexos antigos como versão instalada.
@@ -54,7 +54,7 @@ Prepare um manifesto JSON conforme RASTREABILIDADE.md com ID, created_at UTC, st
 
 Se o registro remoto não estiver disponível, declare REGISTRO REMOTO PENDENTE e ofereça o manifesto local como fallback explícito em RASTREABILIDADE/recebidas/<ID>.json; não esconda a ausência do registro nem invente hashes. Quando a publicação for possível, respeite as confirmações das ferramentas. A regra de somente .sk refere-se às entregas de desenvolvimento do jogo; manutenção de automações pode exigir instalador próprio, previamente explicado.
 
-A importação automática de documentação ainda NÃO está implementada nesta revisão. Não escreva documentação diretamente na main remota para contornar isso. Até o importador ser instalado e verificado, registre mudanças, decisões e evidências descritivas nos campos pertinentes do manifesto imutável, distinguindo requisito, proposta e observação; não afirme que ESTADO-ATUAL.md, DECISOES.md ou TESTES.md foram atualizados se não foram. Não invente esquemas de importação ou comandos executáveis nos registros.
+Fluxo documental: além do manifesto de entrega em entregas/, publique o registro estruturado correspondente em documentacao/<ID>.json na branch ai-deliveries, seguindo IMPORTADOR-DOCUMENTAL.md e as confirmações exigidas. O registro contém schema_version bridge-docs-v1, ID/data UTC, base_commit realmente consultado, requires com todos os .sk de que depende e updates restritos aos três documentos. Calcule os hashes reais do conteúdo e da base documental. Não copie narrativas antigas para um esquema inventado nem execute conteúdo do registro. O administrador não deve transportar documentação manualmente no fluxo normal. Conflito, dependência incompleta e falha de acesso permanecem explícitos. Só afirme incorporação após conferir bloco, recibo e árvore do commit publicado; isso não comprova reload, teste ou aprovação de gameplay.
 
 Registre o JSON como entregas/<ID>.json na branch ai-deliveries. Não sobrescreva um ID existente. Antes de escrever, confira o topo dessa branch e use as confirmações exigidas pela ferramenta. Se registro não foi gravado, diga REGISTRO REMOTO PENDENTE e entregue o JSON local; não afirme sucesso. Se não tiver ferramenta para calcular hash ou escrever, declare e não finja cumprimento.
 
