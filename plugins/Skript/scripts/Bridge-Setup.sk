@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T042106Z-980FBB1E
-# Bridge-Base-Commit: 9cc9038743a28c20111ec32436753a418ec28bf9
+# Bridge-Delivery-ID: TB-20261102T063453Z-D791EED4
+# Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -51,8 +51,11 @@ function bridge_makeItem(mat: text, data: integer, name: text, l1: text = "", l2
 # ---------------------------------------------------------
 function bridge_openMainMenu(p: player):
     set {_inv} to Bukkit.createInventory(null, 36, "§8The Bridge - Arenas Cadastradas")
+    bridge_menuBind({_p}, {_inv}, "ADMIN_LIST")
     set {_slot} to 0
     loop {bridge::arenas::*}:
+        if {_slot} >= 36:
+            exit loop
         set {_a} to loop-value
         set {_world} to {bridge::arena::%{_a}%::world}
         set {_axis} to {bridge::arena::%{_a}%::axis}
@@ -63,6 +66,7 @@ function bridge_openMainMenu(p: player):
 
         set {_item} to bridge_makeItem("PAPER", 0, "§a§lArena: §f%{_a}%", " §7- Eixo: §e%{_axis}% §7| Mundo: §e%{_world}%", " §7- Instâncias Alocadas: §a%{_instances}%", " §7- Gols: §f%{_gols}% §7| Tempo: §f%{_tempoMin}% min", "", "§eClique Esquerdo: §fTeleportar ao centro", "§bClique Direito: §fAbrir Editor Visual")
         {_inv}.setItem({_slot}, {_item})
+        set {-bridge::menu::%{_p}'s uuid%::slots::%{_slot}%} to {_a}
         add 1 to {_slot}
 
     if size of {bridge::arenas::*} is 0:
@@ -73,6 +77,7 @@ function bridge_openMainMenu(p: player):
 
 function bridge_openEditor(p: player, arena: text):
     set {_inv} to Bukkit.createInventory(null, 36, "§8Gerenciar: %{_arena}%")
+    bridge_menuBind({_p}, {_inv}, "ADMIN_EDITOR", {_arena})
 
     set {_gols} to {bridge::arena::%{_arena}%::gols}
     set {_tempo} to {bridge::arena::%{_arena}%::tempo}
@@ -95,6 +100,7 @@ function bridge_openEditor(p: player, arena: text):
 
 function bridge_openModifier(p: player, arena: text, prop: text, title: text, val: number):
     set {_inv} to Bukkit.createInventory(null, 36, "§8Editar: %{_arena}% > %{_title}%")
+    bridge_menuBind({_p}, {_inv}, "ADMIN_VALUE", {_arena}, {_prop})
 
     if {_prop} is "tempo":
         set {_valMin} to floor({_val} / 60)
@@ -151,151 +157,81 @@ function bridge_sendFooter(p: player):
 # CANCELAR OU RECEBER INPUT VIA CHAT
 # ---------------------------------------------------------
 on chat:
-    if {bridge::chat_edit::%player's uuid%::arena} is set:
-        cancel event
-        set {_arena} to {bridge::chat_edit::%player's uuid%::arena}
-        set {_prop} to {bridge::chat_edit::%player's uuid%::prop}
-        
-        delete {bridge::chat_edit::%player's uuid%::*}
-        
-        if message is "cancelar" or "cancel":
-            send "%{bridge::config::prefix}% &cEdição cancelada." to player
-            bridge_openEditor(player, {_arena})
-            stop
-            
-        set {_val} to message parsed as integer
-        if {_val} is not set:
-            send "%{bridge::config::erro}% &cValor inválido. Digite um número inteiro ou use cancelar na edição." to player
-            bridge_openEditor(player, {_arena})
-            stop
-            
-        if {_prop} is "tempo":
-            set {_secVal} to {_val} * 60
-            set {bridge::arena::%{_arena}%::tempo} to {_secVal}
-            send "%{bridge::config::sucesso}% &aTempo de partida de &f%{_arena}% &aalterado para &f%{_val}% min &7(%{_secVal}%s)&a!" to player
-        else:
-            set {bridge::arena::%{_arena}%::%{_prop}%} to {_val}
-            send "%{bridge::config::sucesso}% &aPropriedade &f%{_prop}% &ade &f%{_arena}% &aalterada para &f%{_val}%&a!" to player
-
-        bridge_openEditor(player, {_arena})
+    set {_u} to player's uuid
+    if {bridge::chat_edit::%{_u}%::arena} is not set:
+        stop
+    cancel event
+    set {_p} to player
+    set {_arena} to {bridge::chat_edit::%{_u}%::arena}
+    set {_prop} to {bridge::chat_edit::%{_u}%::prop}
+    set {_revision} to {bridge::chat_edit::%{_u}%::revision}
+    set {_input} to message
+    delete {bridge::chat_edit::%{_u}%::*}
+    # A mensagem pode vir de AsyncPlayerChatEvent; inventários só no tick seguinte.
+    wait 1 tick
+    if {_p} is not online:
+        stop
+    if {_revision} is not set:
+        stop
+    if {-bridge::ui_revision::%{_u}%} is not {_revision}:
+        stop
+    if {_p}.hasPermission("bridge.admin") is false:
+        send "%{bridge::config::erro}% &cVocê não tem mais permissão para editar arenas." to {_p}
+        stop
+    if {bridge::arenas::*} does not contain {_arena}:
+        stop
+    if {_input} is "cancelar" or "cancel":
+        send "%{bridge::config::prefix}% &cEdição cancelada." to {_p}
+        bridge_openEditor({_p}, {_arena})
+        stop
+    set {_value} to {_input} parsed as integer
+    if {_value} is not set:
+        send "%{bridge::config::erro}% &cDigite um número inteiro. Nenhum valor foi alterado." to {_p}
+        bridge_openEditor({_p}, {_arena})
+        stop
+    if {_prop} is "tempo":
+        set {_value} to {_value} * 60
+    set {_ok} to bridge_configApply({_p}, {_arena}, {_prop}, {_value})
+    bridge_openEditor({_p}, {_arena})
 
 # ---------------------------------------------------------
 # GERENCIAMENTO DOS CLIQUES NOS MENUS (BUKKIT EVENT)
 # ---------------------------------------------------------
-on inventory click:
-    set {_topInv} to event.getView().getTopInventory()
-    if {_topInv} is set:
-        set {_title} to {_topInv}.getTitle()
-        if {_title} starts with "§8":
-            cancel event
-            set {_rawItem} to event.getCurrentItem()
-            if {_rawItem} is set:
-                if {_rawItem}.getType().getId() != 0:
-                    set {_meta} to {_rawItem}.getItemMeta()
-                    if {_meta} is set:
-                        if {_meta}.hasDisplayName() is true:
-                            set {_item} to {_meta}.getDisplayName()
-
-                            if {_title} is "§8The Bridge - Arenas Cadastradas":
-                                if {_item} contains "Arena:":
-                                    set {_name} to {_item}
-                                    replace all "§a§lArena: §f" in {_name} with ""
-                                    replace all "&a&lArena: &f" in {_name} with ""
-                                    if "%event.getClick()%" contains "RIGHT":
-                                        bridge_openEditor(player, {_name})
-                                    else:
-                                        close player's inventory
-                                        execute player command "/bridge tp %{_name}% centro"
-
-                            else if {_title} starts with "§8Gerenciar: ":
-                                set {_arena} to {_title}
-                                replace all "§8Gerenciar: " in {_arena} with ""
-                                
-                                if {_item} contains "Voltar":
-                                    bridge_openMainMenu(player)
-                                else if {_item} contains "Gols":
-                                    bridge_openModifier(player, {_arena}, "gols", "Gols", {bridge::arena::%{_arena}%::gols})
-                                else if {_item} contains "Tempo":
-                                    bridge_openModifier(player, {_arena}, "tempo", "Tempo", {bridge::arena::%{_arena}%::tempo})
-                                else if {_item} contains "Void":
-                                    bridge_openModifier(player, {_arena}, "y-void", "Y-Void", {bridge::arena::%{_arena}%::y-void})
-                                else if {_item} contains "Altura":
-                                    bridge_openModifier(player, {_arena}, "y-max", "Y-Max", {bridge::arena::%{_arena}%::y-max})
-                                else if {_item} contains "Longitudinal" or "Ponte":
-                                    bridge_openModifier(player, {_arena}, "limite-ponte", "Limite Longitudinal", {bridge::arena::%{_arena}%::limite-ponte})
-                                else if {_item} contains "Lateral":
-                                    bridge_openModifier(player, {_arena}, "limite-lateral", "Limite Lateral", {bridge::arena::%{_arena}%::limite-lateral})
-
-                            else if {_title} starts with "§8Editar: ":
-                                set {_rawTitle} to {_title}
-                                replace all "§8Editar: " in {_rawTitle} with ""
-                                set {_splitTitle::*} to {_rawTitle} split at " > "
-                                set {_arena} to {_splitTitle::1}
-                                set {_titleProp} to {_splitTitle::2}
-
-                                set {_prop} to ""
-                                if {_titleProp} is "Tempo":
-                                    set {_prop} to "tempo"
-                                else if {_titleProp} is "Gols":
-                                    set {_prop} to "gols"
-                                else if {_titleProp} is "Y-Void":
-                                    set {_prop} to "y-void"
-                                else if {_titleProp} is "Y-Max":
-                                    set {_prop} to "y-max"
-                                else if {_titleProp} is "Limite Longitudinal":
-                                    set {_prop} to "limite-ponte"
-                                else if {_titleProp} is "Limite Lateral":
-                                    set {_prop} to "limite-lateral"
-
-                                if {_item} contains "Voltar":
-                                    bridge_openEditor(player, {_arena})
-                                else if {_item} contains "(-5":
-                                    if {_prop} is "tempo":
-                                        remove 300 from {bridge::arena::%{_arena}%::tempo}
-                                        if {bridge::arena::%{_arena}%::tempo} < 60:
-                                            set {bridge::arena::%{_arena}%::tempo} to 60
-                                    else:
-                                        remove 5 from {bridge::arena::%{_arena}%::%{_prop}%}
-                                    bridge_openModifier(player, {_arena}, {_prop}, {_titleProp}, {bridge::arena::%{_arena}%::%{_prop}%})
-                                else if {_item} contains "(-1":
-                                    if {_prop} is "tempo":
-                                        remove 60 from {bridge::arena::%{_arena}%::tempo}
-                                        if {bridge::arena::%{_arena}%::tempo} < 60:
-                                            set {bridge::arena::%{_arena}%::tempo} to 60
-                                    else:
-                                        remove 1 from {bridge::arena::%{_arena}%::%{_prop}%}
-                                    bridge_openModifier(player, {_arena}, {_prop}, {_titleProp}, {bridge::arena::%{_arena}%::%{_prop}%})
-                                else if {_item} contains "(+1":
-                                    if {_prop} is "tempo":
-                                        add 60 to {bridge::arena::%{_arena}%::tempo}
-                                    else:
-                                        add 1 to {bridge::arena::%{_arena}%::%{_prop}%}
-                                    bridge_openModifier(player, {_arena}, {_prop}, {_titleProp}, {bridge::arena::%{_arena}%::%{_prop}%})
-                                else if {_item} contains "(+5":
-                                    if {_prop} is "tempo":
-                                        add 300 to {bridge::arena::%{_arena}%::tempo}
-                                    else:
-                                        add 5 to {bridge::arena::%{_arena}%::%{_prop}%}
-                                    bridge_openModifier(player, {_arena}, {_prop}, {_titleProp}, {bridge::arena::%{_arena}%::%{_prop}%})
-                                else if {_item} contains "Digitar Valor":
-                                    close player's inventory
-                                    set {bridge::chat_edit::%player's uuid%::arena} to {_arena}
-                                    set {bridge::chat_edit::%player's uuid%::prop} to {_prop}
-                                    send "" to player
-                                    if {_prop} is "tempo":
-                                        send "%{bridge::config::prefix}% &eDigite no chat o novo tempo de partida em minutos para &f%{_arena}%&e:" to player
-                                    else:
-                                        send "%{bridge::config::prefix}% &eDigite no chat o novo valor numérico para &f%{_prop}%&e:" to player
-                                    send " &7(Ou digite &ccancelar &7para sair)" to player
-                                    send "" to player
-                                else if {_item} contains "Usar minha Altura" or "Usar minha Posição":
-                                    close player's inventory
-                                    if {_prop} is "y-void" or "y-max":
-                                        set {_newVal} to floor(y-coordinate of player's location)
-                                        set {bridge::arena::%{_arena}%::%{_prop}%} to {_newVal}
-                                        send "%{bridge::config::sucesso}% &aAltura &f%{_prop}% &ade &f%{_arena}% &adefinida para Y=&f%{_newVal}% &apela sua posição!" to player
-                                    else if {_prop} is "limite-ponte":
-                                        execute player command "/bridge setlimitpos %{_arena}%"
+on inventory click with priority lowest:
+    set {_p} to player
+    set {_u} to {_p}'s uuid
+    set {_inv} to {-bridge::menu::%{_u}%::inventory}
+    if {_inv} is not set:
+        stop
+    set {_top} to event.getView().getTopInventory()
+    if {_top} is not {_inv}:
+        stop
+    cancel event
+    set {_slot} to event.getRawSlot()
+    if {_slot} < 0:
+        stop
+    if {_slot} >= {_inv}.getSize():
+        stop
+    set {_click} to event.getClick().name()
+    if {_click} is not "LEFT":
+        if {_click} is not "RIGHT":
+            stop
+    if {-bridge::menu::%{_u}%::busy} is true:
+        stop
+    set {_revision} to {-bridge::menu::%{_u}%::revision}
+    set {-bridge::menu::%{_u}%::busy} to true
+    wait 1 tick
+    if {_p} is not online:
+        stop
+    if {-bridge::menu::%{_u}%::inventory} is not set:
+        stop
+    if {-bridge::menu::%{_u}%::revision} is not {_revision}:
+        stop
+    set {_current} to {_p}.getOpenInventory().getTopInventory()
+    if {_current} is not {_inv}:
+        stop
+    set {-bridge::menu::%{_u}%::busy} to false
+    bridge_menuAction({_p}, {_slot}, {_click})
 
 # ---------------------------------------------------------
 # COMANDO PRINCIPAL /BRIDGE
@@ -348,6 +284,11 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
     permission: bridge.admin
     permission message: &cVocê não tem permissão.
     trigger:
+        if executor is not a player:
+            if arg-1 is not "set":
+                if arg-1 is not "setlimit":
+                    send "&cNo console, use /bridge set ou /bridge setlimit. As demais ações precisam de jogador/posição/menu." to executor
+                    stop
         if arg-1 is not set:
             bridge_showHelp(player)
             stop
@@ -691,8 +632,7 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 send "%{bridge::config::erro}% &cAfaste-se do centro (0,0) para definir o limite." to player
                 stop
 
-            set {bridge::arena::%{_arena}%::limite-ponte} to {_dist}
-            send "%{bridge::config::sucesso}% &aLimite de construção na ponte para &f%{_arena}% &adefinido para &f%{_dist}% &ablocos do centro." to player
+            set {_ok} to bridge_configApply(executor, {_arena}, "limite-ponte", {_dist})
 
         # ---------------------------------------------------------
         # DEFINIR CAGE CUSTOMIZADA
@@ -711,6 +651,9 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
                 send "%{bridge::config::erro}% &cA arena '%{_arena}%' não existe." to player
                 stop
 
+            if {-bridge::setup::%{_arena}%::active} is true:
+                send "%{bridge::config::erro}% &cAguarde o cadastro desta arena terminar." to player
+                stop
             set {bridge::arena::%{_arena}%::team::%{_team}%::cage} to location of player
             send "%{bridge::config::sucesso}% &aCage customizada do Time %{_team}% definida em %player's location%." to player
 
@@ -718,47 +661,38 @@ command /bridge [<text>] [<text>] [<text>] [<text>]:
         # DEFINIR LIMITES DE CONSTRUÇÃO
         # ---------------------------------------------------------
         else if arg-1 is "setlimit":
-            if arg-2 is not set:
-                bridge_tellrawCmd(player, "/bridge setlimit <arena> <ponte|lateral> <val>", "Sintaxe correta", true)
-                stop
             set {_arena} to arg-2
-            set {_tipo} to arg-3
-            set {_val} to arg-4 parsed as integer
-
-            if {bridge::arena::%{_arena}%::axis} is not set:
-                send "%{bridge::config::erro}% &cA arena '%{_arena}%' não existe." to player
+            set {_type} to arg-3
+            set {_value} to arg-4 parsed as integer
+            if {_arena} is not set:
+                send "&cUse: /bridge setlimit <arena> <ponte|lateral> <valor>" to executor
                 stop
-            if {_val} is not set:
-                send "%{bridge::config::erro}% &cInforme um número inteiro para o valor. Use /bridge ajuda arena para a sintaxe." to player
+            if {_value} is not set:
+                send "&cInforme um número inteiro." to executor
                 stop
+            if {_type} is "ponte" or "longitudinal":
+                set {_prop} to "limite-ponte"
+            else if {_type} is "lateral":
+                set {_prop} to "limite-lateral"
+            else:
+                send "&cUse ponte ou lateral." to executor
+                stop
+            set {_ok} to bridge_configApply(executor, {_arena}, {_prop}, {_value})
 
-            if {_tipo} is "ponte" or "longitudinal":
-                set {bridge::arena::%{_arena}%::limite-ponte} to {_val}
-                send "%{bridge::config::sucesso}% &aLimite de construção na ponte de &f%{_arena}% &adefinido para &f%{_val}% &ablocos." to player
-            else if {_tipo} is "lateral":
-                set {bridge::arena::%{_arena}%::limite-lateral} to {_val}
-                send "%{bridge::config::sucesso}% &aDistância lateral de &f%{_arena}%&a: &f%{_val}% blocos para cada lado&a." to player
-
-        # ---------------------------------------------------------
-        # ALTERAR PROPRIEDADES DA ARENA
-        # ---------------------------------------------------------
         else if arg-1 is "set":
-            if arg-2 is not set:
-                bridge_tellrawCmd(player, "/bridge set <arena> <prop> <val>", "Sintaxe correta", true)
-                stop
             set {_arena} to arg-2
             set {_prop} to arg-3
-            set {_val} to arg-4 parsed as integer
-
-            if {bridge::arena::%{_arena}%::axis} is not set:
-                send "%{bridge::config::erro}% &cA arena '%{_arena}%' não existe." to player
+            set {_value} to arg-4 parsed as integer
+            if {_arena} is not set:
+                send "&cUse: /bridge set <arena> <propriedade> <valor>" to executor
                 stop
-            if {_val} is not set:
-                send "%{bridge::config::erro}% &cInforme um número inteiro para o valor. Use /bridge ajuda arena para a sintaxe." to player
+            if {_prop} is not set:
+                send "&cInforme a propriedade." to executor
                 stop
-
-            set {bridge::arena::%{_arena}%::%{_prop}%} to {_val}
-            send "%{bridge::config::sucesso}% &aPropriedade &f%{_prop}% &ade &f%{_arena}% &adefinida para &f%{_val}%." to player
+            if {_value} is not set:
+                send "&cInforme um número inteiro. Tempo neste comando é em segundos." to executor
+                stop
+            set {_ok} to bridge_configApply(executor, {_arena}, {_prop}, {_value})
 
         # ---------------------------------------------------------
         # TELEPORTE PARA A ARENA
@@ -889,3 +823,251 @@ function bridge_setupPromote(candidate: object, target: object, token: text) :: 
         if {_restored} is not true:
             send "[Bridge] ERRO: rollback do arquivo falhou. Backup preservado em %{_backup}%; alvo: %{_target}%. Não recadastre antes de recuperar." to console
     return false
+
+
+# Contexto volátil: inventário e slots pertencentes a cada abertura do Bridge.
+function bridge_menuBind(p: player, inv: object, kind: text, arena: text = "", prop: text = ""):
+    set {_u} to {_p}'s uuid
+    set {_oldView} to {-bridge::menu::%{_u}%::inventory}
+    if {_oldView} is set:
+        set {_currentView} to {_p}.getOpenInventory().getTopInventory()
+        if {_currentView} is {_oldView}:
+            close {_p}'s inventory
+    if {-bridge::ui_revision::%{_u}%} is not set:
+        set {-bridge::ui_revision::%{_u}%} to 0
+    add 1 to {-bridge::ui_revision::%{_u}%}
+    delete {-bridge::menu::%{_u}%::*}
+    delete {bridge::chat_edit::%{_u}%::*}
+    set {-bridge::menu::%{_u}%::inventory} to {_inv}
+    set {-bridge::menu::%{_u}%::kind} to {_kind}
+    set {-bridge::menu::%{_u}%::arena} to {_arena}
+    set {-bridge::menu::%{_u}%::prop} to {_prop}
+    set {-bridge::menu::%{_u}%::revision} to {-bridge::ui_revision::%{_u}%}
+
+function bridge_configTitle(prop: text) :: text:
+    if {_prop} is "gols":
+        return "Gols"
+    if {_prop} is "tempo":
+        return "Tempo"
+    if {_prop} is "y-void":
+        return "Y-Void"
+    if {_prop} is "y-max":
+        return "Y-Max"
+    if {_prop} is "limite-ponte":
+        return "Limite Longitudinal"
+    if {_prop} is "limite-lateral":
+        return "Limite Lateral"
+    return ""
+
+function bridge_configValueValid(prop: text, value: integer) :: boolean:
+    if {_prop} is "gols" or "tempo":
+        if {_value} > 0:
+            return true
+    else if {_prop} is "limite-ponte" or "limite-lateral":
+        if {_value} >= 0:
+            return true
+    else if {_prop} is "y-max":
+        if {_value} >= 0:
+            if {_value} <= 255:
+                return true
+    else if {_prop} is "y-void":
+        # Limiar de void pode ser negativo; não é uma altura de construção.
+        if {_value} <= 255:
+            return true
+    return false
+
+function bridge_configApply(actor: object, arena: text, prop: text, value: integer) :: boolean:
+    if Bukkit.isPrimaryThread() is false:
+        return false
+    if {_actor}.hasPermission("bridge.admin") is false:
+        set {_msg} to colored "%{bridge::config::erro}% &cVocê não tem permissão para editar arenas."
+        {_actor}.sendMessage({_msg})
+        return false
+    if {bridge::arenas::*} does not contain {_arena}:
+        set {_msg} to colored "%{bridge::config::erro}% &cArena não encontrada."
+        {_actor}.sendMessage({_msg})
+        return false
+    if {-bridge::setup::%{_arena}%::active} is true:
+        set {_msg} to colored "%{bridge::config::erro}% &cAguarde o cadastro desta arena terminar antes de editar valores."
+        {_actor}.sendMessage({_msg})
+        return false
+    if bridge_configValueValid({_prop}, {_value}) is not true:
+        set {_msg} to colored "%{bridge::config::erro}% &cPropriedade ou valor inválido. Gols/tempo positivos; limites não negativos; Y-Max entre 0 e 255; Y-Void até 255."
+        {_actor}.sendMessage({_msg})
+        return false
+    set {bridge::arena::%{_arena}%::%{_prop}%} to {_value}
+    if {_prop} is "tempo":
+        set {_msg} to colored "%{bridge::config::sucesso}% &aTempo de &f%{_arena}%&a: &f%{_value}% segundos&a."
+    else:
+        set {_msg} to colored "%{bridge::config::sucesso}% &a%{_prop}% de &f%{_arena}%&a: &f%{_value}%&a."
+    {_actor}.sendMessage({_msg})
+    return true
+
+function bridge_menuAction(p: player, slot: integer, click: text):
+    set {_u} to {_p}'s uuid
+    set {_kind} to {-bridge::menu::%{_u}%::kind}
+    if {_kind} is not "ARENAS":
+        if {_p}.hasPermission("bridge.admin") is false:
+            send "%{bridge::config::erro}% &cVocê não tem permissão para este editor." to {_p}
+            stop
+    if {_kind} is "ARENAS" or "ADMIN_LIST":
+        set {_target} to {-bridge::menu::%{_u}%::slots::%{_slot}%}
+        if {_target} is not set:
+            stop
+        if {bridge::arenas::*} does not contain {_target}:
+            send "%{bridge::config::erro}% &cEssa arena não está mais cadastrada. Reabra o menu." to {_p}
+            stop
+        if {_kind} is "ARENAS":
+            close {_p}'s inventory
+            make {_p} execute command "/jogar %{_target}%"
+        else if {_click} is "RIGHT":
+            bridge_openEditor({_p}, {_target})
+        else:
+            close {_p}'s inventory
+            make {_p} execute command "/bridge tp %{_target}% centro"
+        stop
+    set {_arena} to {-bridge::menu::%{_u}%::arena}
+    if {bridge::arenas::*} does not contain {_arena}:
+        send "%{bridge::config::erro}% &cArena não encontrada. Reabra o menu." to {_p}
+        stop
+    if {_kind} is "ADMIN_EDITOR":
+        if {_slot} is 31:
+            bridge_openMainMenu({_p})
+            stop
+        if {_slot} is 10:
+            set {_prop} to "gols"
+        else if {_slot} is 11:
+            set {_prop} to "tempo"
+        else if {_slot} is 12:
+            set {_prop} to "y-void"
+        else if {_slot} is 13:
+            set {_prop} to "y-max"
+        else if {_slot} is 14:
+            set {_prop} to "limite-ponte"
+        else if {_slot} is 15:
+            set {_prop} to "limite-lateral"
+        else:
+            stop
+        set {_value} to {bridge::arena::%{_arena}%::%{_prop}%}
+        if {_value} is not set:
+            send "%{bridge::config::erro}% &cValor ausente. Configure-o pelo comando /bridge set." to {_p}
+            stop
+        set {_title} to bridge_configTitle({_prop})
+        bridge_openModifier({_p}, {_arena}, {_prop}, {_title}, {_value})
+        stop
+    if {_kind} is not "ADMIN_VALUE":
+        stop
+    set {_prop} to {-bridge::menu::%{_u}%::prop}
+    set {_title} to bridge_configTitle({_prop})
+    if {_title} is "":
+        stop
+    if {_slot} is 31:
+        bridge_openEditor({_p}, {_arena})
+        stop
+    if {-bridge::setup::%{_arena}%::active} is true:
+        send "%{bridge::config::erro}% &cAguarde o cadastro desta arena terminar." to {_p}
+        stop
+    if {_slot} is 22:
+        close {_p}'s inventory
+        add 1 to {-bridge::ui_revision::%{_u}%}
+        set {bridge::chat_edit::%{_u}%::arena} to {_arena}
+        set {bridge::chat_edit::%{_u}%::prop} to {_prop}
+        set {bridge::chat_edit::%{_u}%::revision} to {-bridge::ui_revision::%{_u}%}
+        if {_prop} is "tempo":
+            send "%{bridge::config::prefix}% &eDigite o tempo em minutos, ou cancelar." to {_p}
+        else:
+            send "%{bridge::config::prefix}% &eDigite um inteiro para %{_prop}%, ou cancelar." to {_p}
+        stop
+    set {_oldValue} to {bridge::arena::%{_arena}%::%{_prop}%}
+    if {_oldValue} is not set:
+        stop
+    set {_value} to {_oldValue}
+    if {_slot} is 24:
+        if {_prop} is "y-void" or "y-max":
+            set {_value} to floor(y-coordinate of {_p}'s location)
+        else if {_prop} is "limite-ponte":
+            if {bridge::arena::%{_arena}%::axis} is "X":
+                set {_value} to abs(floor(x-coordinate of {_p}'s location))
+            else:
+                set {_value} to abs(floor(z-coordinate of {_p}'s location))
+            if {_value} <= 0:
+                send "%{bridge::config::erro}% &cAfaste-se do centro para definir o limite." to {_p}
+                stop
+        else:
+            stop
+    else:
+        set {_delta} to 0
+        if {_slot} is 10:
+            set {_delta} to -5
+        else if {_slot} is 11:
+            set {_delta} to -1
+        else if {_slot} is 15:
+            set {_delta} to 1
+        else if {_slot} is 16:
+            set {_delta} to 5
+        else:
+            stop
+        if {_prop} is "tempo":
+            set {_delta} to {_delta} * 60
+        set {_value} to {_oldValue} + {_delta}
+        if {_prop} is "tempo":
+            if {_value} < 60:
+                set {_value} to 60
+    set {_ok} to bridge_configApply({_p}, {_arena}, {_prop}, {_value})
+    set {_current} to {bridge::arena::%{_arena}%::%{_prop}%}
+    bridge_openModifier({_p}, {_arena}, {_prop}, {_title}, {_current})
+
+on inventory drag:
+    set {_u} to player's uuid
+    set {_inv} to {-bridge::menu::%{_u}%::inventory}
+    if {_inv} is set:
+        set {_top} to event.getView().getTopInventory()
+        if {_top} is {_inv}:
+            cancel event
+
+on inventory close:
+    set {_u} to player's uuid
+    set {_inv} to {-bridge::menu::%{_u}%::inventory}
+    if {_inv} is set:
+        set {_closed} to event.getInventory()
+        if {_closed} is {_inv}:
+            delete {-bridge::menu::%{_u}%::*}
+
+on quit:
+    set {_u} to player's uuid
+    delete {-bridge::menu::%{_u}%::*}
+    delete {-bridge::ui_revision::%{_u}%}
+    delete {bridge::chat_edit::%{_u}%::*}
+
+# Migração de interfaces antigas abertas durante reload: fecha somente nomes
+# reservados conhecidos e tamanhos esperados; cliques normais usam a referência.
+function bridge_legacyMenu(inv: object) :: boolean:
+    set {_size} to {_inv}.getSize()
+    set {_title} to {_inv}.getTitle()
+    if {_size} is 27:
+        if {_title} is "§8The Bridge - Seleção de Arenas":
+            return true
+    if {_size} is not 36:
+        return false
+    if {_title} is "§8The Bridge - Arenas Cadastradas":
+        return true
+    loop {bridge::arenas::*}:
+        set {_arena} to loop-value
+        if {_title} is "§8Gerenciar: %{_arena}%":
+            return true
+        loop "gols", "tempo", "y-void", "y-max", "limite-ponte" and "limite-lateral":
+            set {_name} to bridge_configTitle(loop-value-2)
+            if {_title} is "§8Editar: %{_arena}% > %{_name}%":
+                return true
+    return false
+
+on load:
+    wait 1 tick
+    loop all players:
+        set {_u} to loop-player's uuid
+        set {_inv} to loop-player.getOpenInventory().getTopInventory()
+        if bridge_legacyMenu({_inv}) is true:
+            close loop-player's inventory
+            send "%{bridge::config::prefix}% &eOs menus foram atualizados. Reabra o menu para continuar." to loop-player
+        delete {-bridge::menu::%{_u}%::*}
+        delete {bridge::chat_edit::%{_u}%::*}

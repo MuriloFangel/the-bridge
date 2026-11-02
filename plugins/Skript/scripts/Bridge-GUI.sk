@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T060138Z-6C20BEA6
-# Bridge-Base-Commit: 2a1c8f56708d48843d6a5908550ee0b7142e33b5
+# Bridge-Delivery-ID: TB-20261102T063453Z-D791EED4
+# Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3
 # ================================================================
 # THE BRIDGE - MENU GUI DE SELEÇÃO DE ARENAS (ETAPA 2.3 - FIX)
 # ================================================================
@@ -19,6 +19,7 @@ command /arenas:
 function bridge_openArenaMenu(p: player):
     set {_inv} to Bukkit.createInventory(null, 27, colored "&8The Bridge - Seleção de Arenas")
 
+    bridge_menuBind({_p}, {_inv}, "ARENAS")
     set {_slot} to 10
     loop {bridge::arenas::*}:
         set {_arena} to loop-value
@@ -41,22 +42,10 @@ function bridge_openArenaMenu(p: player):
         {_item}.setItemMeta({_meta})
 
         {_inv}.setItem({_slot}, {_item})
+        set {-bridge::menu::%{_p}'s uuid%::slots::%{_slot}%} to {_arena}
         add 1 to {_slot}
         if {_slot} is 17:
             exit loop
 
     {_p}.openInventory({_inv})
 
-on inventory click:
-    if name of event-inventory contains "The Bridge - Seleção de Arenas":
-        cancel event
-        if event-item is set:
-            if event-item is not air:
-                set {_meta} to event-item.getItemMeta()
-                if {_meta} is set:
-                    set {_displayName} to {_meta}.getDisplayName()
-                    if {_displayName} contains "Arena ":
-                        set {_arenaName} to uncolored {_displayName}
-                        replace all "Arena " in {_arenaName} with ""
-                        close player's inventory
-                        execute player command "/jogar %{_arenaName}%"
