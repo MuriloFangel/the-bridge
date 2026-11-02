@@ -1,3 +1,6 @@
+# Bridge-Delivery-ID: TB-20261102T053111Z-3F504FDE
+# Bridge-Base-Commit: ecb022e16184c356f7864fac313af4db0fab347b
+# Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
 # CarbonSpigot 1.8.8 / Skript 2.6.4-for-1.8 / skript-reflect 2.2.3
@@ -8,6 +11,8 @@ import:
     org.bukkit.scoreboard.DisplaySlot
     org.bukkit.scoreboard.Objective
     org.bukkit.scoreboard.Scoreboard
+    java.util.HashMap as BridgeSidebarMap
+    java.util.ArrayList as BridgeSidebarList
 
 # ---------------------------------------------------------
 # HELPERS DE BARRA DE GOLS E FORMATAÇÃO DE TEMPO
@@ -16,6 +21,8 @@ import:
 on load:
     if {bridge::config::scoreboard_footer} is not set:
         set {bridge::config::scoreboard_footer} to "mc.seuservidor.com"
+    set {-bridge::sidebar_pending} to new BridgeSidebarMap()
+    bridge_sidebarCollectCounts()
 
 function bridge_getGoalBar(score: integer, maxGoals: integer, colorCode: text) :: text:
     set {_res} to ""
@@ -50,28 +57,136 @@ function bridge_formatTime(seconds: number) :: text:
 # LOOP PRINCIPAL DE ATUALIZAÇÃO DA SCOREBOARD
 # ---------------------------------------------------------
 every 1 second:
+    bridge_sidebarCollectCounts()
     loop all players:
         bridge_updateScoreboard(loop-player)
 
 function bridge_updateScoreboard(p: player):
+    if Bukkit.isPrimaryThread() is false:
+        stop
+    if {_p} is not online:
+        stop
+    if {-bridge::sidebar_boards} is not set:
+        bridge_sidebarCollectCounts()
+    if {-bridge::sidebar_pending} is not set:
+        set {-bridge::sidebar_pending} to new BridgeSidebarMap()
+    set {_u} to {_p}'s uuid
+    set {_sb} to {_p}.getScoreboard()
+    set {_shown} to {_sb}.getObjective(DisplaySlot.SIDEBAR)
+    if {_shown} is set:
+        if {_shown}.getName() is not "bridge":
+            # Não disputar a sidebar atualmente controlada por outro objetivo.
+            delete {-bridge::sidebar::%{_u}%::*}
+            stop
+    set {_createdPrivate} to false
+    if {_sb} is Bukkit.getScoreboardManager().getMainScoreboard():
+        # Preserva o modelo individual já usado pela versão anterior.
+        set {_sb} to Bukkit.getScoreboardManager().getNewScoreboard()
+        {_p}.setScoreboard({_sb})
+        set {_createdPrivate} to true
+    set {_count} to {-bridge::sidebar_boards}.get({_sb})
+    if {_count} is not set:
+        if {_createdPrivate} is true:
+            set {_count} to 1
+        else:
+            # Uma board trocada fora deste ciclo é reavaliada no próximo ciclo.
+            stop
+    if {_count} > 1:
+        set {_owned} to {-bridge::sidebar::%{_u}%::objective}
+        set {_existing} to {_sb}.getObjective("bridge")
+        if {_owned} is set:
+            if {_existing} is set:
+                if {-bridge::sidebar::%{_u}%::board} is {_sb}:
+                    if {_existing}.getCriteria() is "dummy":
+                        {_existing}.unregister()
+        delete {-bridge::sidebar::%{_u}%::*}
+        stop
+    set {_newObjective} to false
+    set {_obj} to {_sb}.getObjective("bridge")
+    if {_obj} is not set:
+        set {_obj} to {_sb}.registerNewObjective("bridge", "dummy")
+        set {_newObjective} to true
+    if {_obj}.getCriteria() is not "dummy":
+        stop
+    set {_title} to colored "&e&lTHE BRIDGE"
+    if {_obj}.getDisplayName() is not {_title}:
+        {_obj}.setDisplayName({_title})
+    if {_obj}.getDisplaySlot() is not DisplaySlot.SIDEBAR:
+        {_obj}.setDisplaySlot(DisplaySlot.SIDEBAR)
+    set {_actual} to {-bridge::sidebar::%{_u}%::scores}
+    set {_cachedBoard} to {-bridge::sidebar::%{_u}%::board}
+    set {_read} to false
+    if {_actual} is not set:
+        set {_read} to true
+    if {_cachedBoard} is not {_sb}:
+        set {_read} to true
+    if {_newObjective} is true:
+        set {_read} to true
+    if {_read} is true:
+        set {_actual} to bridge_sidebarReadScores({_sb}, {_obj})
+    set {_wanted} to new BridgeSidebarMap()
+    {-bridge::sidebar_pending}.put({_obj}, {_wanted})
+    bridge_sidebarRender({_p}, {_obj})
+    {-bridge::sidebar_pending}.remove({_obj})
+    bridge_sidebarApply({_p}, {_sb}, {_obj}, {_actual}, {_wanted})
+
+function bridge_setScoreLine(obj: object, text: text, score: integer):
+    set {_line} to colored {_text}
+    if {-bridge::sidebar_pending} is set:
+        set {_pending} to {-bridge::sidebar_pending}.get({_obj})
+        if {_pending} is set:
+            {_pending}.put({_line}, {_score})
+            stop
+    # Compatibilidade com chamadas diretas da função fora da renderização.
+    set {_scoreObj} to {_obj}.getScore({_line})
+    {_scoreObj}.setScore({_score})
+
+# Pedido PAUSA é apenas uma votação: mostrar o tempo real, que continua correndo.
+function bridge_sidebarTime(inst: text) :: text:
+    if {bridge::instance::%{_inst}%::resume_active} is true:
+        return "&eRETOMANDO"
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        return "&cDESCONECTADO"
+    if {bridge::instance::%{_inst}%::in_pause} is true:
+        return "&ePAUSADO"
+    if {bridge::instance::%{_inst}%::voting::active} is true:
+        if {bridge::instance::%{_inst}%::voting::type} is "GOL DE OURO":
+            return "&eVOTAÇÃO (GOL DE OURO)"
+    set {_remaining} to {bridge::instance::%{_inst}%::time_remaining}
+    if {_remaining} is not set:
+        set {_remaining} to 900
+    return bridge_formatTime({_remaining})
+
+command /bridgescoreboard [<text>] [<text>]:
+    permission: bridge.admin
+    permission message: &cSomente a administração pode alterar o rodapé da scoreboard.
+    executable by: players and console
+    trigger:
+        if arg-1 is not "setfooter":
+            send "%{bridge::config::prefix}% &eUse: &f/bridgescoreboard setfooter <endereço>" to executor
+            stop
+        if arg-2 is not set:
+            send "%{bridge::config::erro}% &cInforme o domínio ou IP, com porta se necessário." to executor
+            stop
+        set {_footer} to arg-2
+        if length of {_footer} > 38:
+            send "%{bridge::config::erro}% &cUse até 38 caracteres neste rodapé." to executor
+            stop
+        if {_footer}.matches("[A-Za-z0-9.:-]+") is false:
+            send "%{bridge::config::erro}% &cUse letras, números, pontos, hífen e dois-pontos, sem espaços." to executor
+            stop
+        set {bridge::config::scoreboard_footer} to {_footer}
+        bridge_sidebarCollectCounts()
+        loop all players:
+            bridge_updateScoreboard(loop-player)
+        send "%{bridge::config::sucesso}% &aRodapé salvo e atualizado: &f%{_footer}%" to executor
+
+function bridge_sidebarRender(p: player, obj: object):
     set {_u} to {_p}'s uuid
     set {_state} to {bridge::player::%{_u}%::state}
     set {_footer} to {bridge::config::scoreboard_footer}
     if {_footer} is not set:
         set {_footer} to "mc.seuservidor.com"
-
-    set {_sb} to {_p}.getScoreboard()
-    if {_sb} is Bukkit.getScoreboardManager().getMainScoreboard():
-        set {_sb} to Bukkit.getScoreboardManager().getNewScoreboard()
-        {_p}.setScoreboard({_sb})
-
-    set {_obj} to {_sb}.getObjective("bridge")
-    if {_obj} is not null:
-        {_obj}.unregister()
-    
-    set {_obj} to {_sb}.registerNewObjective("bridge", "dummy")
-    {_obj}.setDisplaySlot(DisplaySlot.SIDEBAR)
-    {_obj}.setDisplayName(colored "&e&lTHE BRIDGE")
 
     # 1. SCOREBOARD DO LOBBY
     if {_state} is not set:
@@ -79,11 +194,8 @@ function bridge_updateScoreboard(p: player):
         set {_goals} to bridge_getStat({_p}, "goals")
         set {_kills} to bridge_getStat({_p}, "kills")
 
-        set {_onlineCount} to size of all players
-        set {_inGameCount} to 0
-        loop all players:
-            if {bridge::player::%loop-player's uuid%::state} is "INGAME":
-                add 1 to {_inGameCount}
+        set {_onlineCount} to {-bridge::sidebar_online}
+        set {_inGameCount} to {-bridge::sidebar_ingame}
 
         bridge_setScoreLine({_obj}, "&7%now%", 9)
         bridge_setScoreLine({_obj}, "&1", 8)
@@ -160,44 +272,92 @@ function bridge_updateScoreboard(p: player):
         bridge_setScoreLine({_obj}, "&5", 1)
         bridge_setScoreLine({_obj}, "&e%{_footer}%", 0)
 
-function bridge_setScoreLine(obj: object, text: text, score: integer):
-    set {_scoreObj} to {_obj}.getScore(colored {_text})
-    {_scoreObj}.setScore({_score})
-# Pedido PAUSA é apenas uma votação: mostrar o tempo real, que continua correndo.
-function bridge_sidebarTime(inst: text) :: text:
-    if {bridge::instance::%{_inst}%::resume_active} is true:
-        return "&eRETOMANDO"
-    if {bridge::instance::%{_inst}%::frozen} is true:
-        return "&cDESCONECTADO"
-    if {bridge::instance::%{_inst}%::in_pause} is true:
-        return "&ePAUSADO"
-    if {bridge::instance::%{_inst}%::voting::active} is true:
-        if {bridge::instance::%{_inst}%::voting::type} is "GOL DE OURO":
-            return "&eVOTAÇÃO (GOL DE OURO)"
-    set {_remaining} to {bridge::instance::%{_inst}%::time_remaining}
-    if {_remaining} is not set:
-        set {_remaining} to 900
-    return bridge_formatTime({_remaining})
 
-command /bridgescoreboard [<text>] [<text>]:
-    permission: bridge.admin
-    permission message: &cSomente a administração pode alterar o rodapé da scoreboard.
-    executable by: players and console
-    trigger:
-        if arg-1 is not "setfooter":
-            send "%{bridge::config::prefix}% &eUse: &f/bridgescoreboard setfooter <endereço>" to executor
-            stop
-        if arg-2 is not set:
-            send "%{bridge::config::erro}% &cInforme o domínio ou IP, com porta se necessário." to executor
-            stop
-        set {_footer} to arg-2
-        if length of {_footer} > 38:
-            send "%{bridge::config::erro}% &cUse até 38 caracteres neste rodapé." to executor
-            stop
-        if {_footer}.matches("[A-Za-z0-9.:-]+") is false:
-            send "%{bridge::config::erro}% &cUse letras, números, pontos, hífen e dois-pontos, sem espaços." to executor
-            stop
-        set {bridge::config::scoreboard_footer} to {_footer}
-        loop all players:
-            bridge_updateScoreboard(loop-player)
-        send "%{bridge::config::sucesso}% &aRodapé salvo e atualizado: &f%{_footer}%" to executor
+# Uma única contagem global por ciclo, em vez de uma varredura por pessoa no lobby.
+function bridge_sidebarCollectCounts():
+    if Bukkit.isPrimaryThread() is false:
+        stop
+    set {_online} to 0
+    set {_ingame} to 0
+    set {_boards} to new BridgeSidebarMap()
+    loop all players:
+        add 1 to {_online}
+        if {bridge::player::%loop-player's uuid%::state} is "INGAME":
+            add 1 to {_ingame}
+        set {_board} to loop-player.getScoreboard()
+        set {_n} to {_boards}.get({_board})
+        if {_n} is not set:
+            set {_n} to 0
+        add 1 to {_n}
+        {_boards}.put({_board}, {_n})
+    set {-bridge::sidebar_online} to {_online}
+    set {-bridge::sidebar_ingame} to {_ingame}
+    set {-bridge::sidebar_boards} to {_boards}
+
+# Adota somente scores efetivamente registrados no objetivo reservado bridge.
+function bridge_sidebarReadScores(sb: object, obj: object) :: object:
+    set {_result} to new BridgeSidebarMap()
+    set {_entries} to {_sb}.getEntries().iterator()
+    while {_entries}.hasNext() is true:
+        set {_entry} to {_entries}.next()
+        set {_scores} to {_sb}.getScores({_entry}).iterator()
+        while {_scores}.hasNext() is true:
+            set {_score} to {_scores}.next()
+            set {_owner} to {_score}.getObjective()
+            if {_owner}.getName() is "bridge":
+                set {_value} to {_score}.getScore()
+                {_result}.put({_entry}, {_value})
+    return {_result}
+
+function bridge_sidebarApply(p: player, sb: object, obj: object, actual: object, wanted: object):
+    set {_u} to {_p}'s uuid
+    set {_remove} to new BridgeSidebarList()
+    set {_rebuild} to false
+    set {_oldEntries} to {_actual}.keySet().iterator()
+    while {_oldEntries}.hasNext() is true:
+        set {_entry} to {_oldEntries}.next()
+        if {_wanted}.containsKey({_entry}) is false:
+            {_remove}.add({_entry})
+            # resetScores atua na board inteira. Não usá-lo se outro objetivo
+            # também possuir um score com o mesmo texto.
+            set {_scores} to {_sb}.getScores({_entry}).iterator()
+            while {_scores}.hasNext() is true:
+                set {_score} to {_scores}.next()
+                set {_owner} to {_score}.getObjective()
+                if {_owner}.getName() is not "bridge":
+                    set {_rebuild} to true
+    if {_rebuild} is true:
+        # Exceção de colisão: recria apenas bridge, preservando os demais scores.
+        # Não é o caminho normal de atualização nem uma ação a cada segundo.
+        {_obj}.unregister()
+        set {_obj} to {_sb}.registerNewObjective("bridge", "dummy")
+        {_obj}.setDisplayName(colored "&e&lTHE BRIDGE")
+        {_obj}.setDisplaySlot(DisplaySlot.SIDEBAR)
+        set {_actual} to new BridgeSidebarMap()
+    else:
+        set {_removals} to {_remove}.iterator()
+        while {_removals}.hasNext() is true:
+            set {_entry} to {_removals}.next()
+            {_sb}.resetScores({_entry})
+            {_actual}.remove({_entry})
+    set {_desired} to {_wanted}.entrySet().iterator()
+    while {_desired}.hasNext() is true:
+        set {_item} to {_desired}.next()
+        set {_entry} to {_item}.getKey()
+        set {_value} to {_item}.getValue()
+        set {_old} to {_actual}.get({_entry})
+        if {_old} is not set:
+            set {_scoreObj} to {_obj}.getScore({_entry})
+            {_scoreObj}.setScore({_value})
+        else if {_old} is not {_value}:
+            set {_scoreObj} to {_obj}.getScore({_entry})
+            {_scoreObj}.setScore({_value})
+        {_actual}.put({_entry}, {_value})
+    set {-bridge::sidebar::%{_u}%::board} to {_sb}
+    set {-bridge::sidebar::%{_u}%::objective} to {_obj}
+    set {-bridge::sidebar::%{_u}%::scores} to {_actual}
+
+on quit:
+    # Libera referências do cache; não apaga objetivos de outros plugins.
+    set {_u} to player's uuid
+    delete {-bridge::sidebar::%{_u}%::*}
