@@ -1,0 +1,21 @@
+{
+  "schema_version": "bridge-docs-receipt-v1",
+  "delivery_id": "TB-20261102T061143Z-66F753A8",
+  "state": "INCORPORADA_LOCALMENTE",
+  "source": {
+    "ledger_commit": "5be42ee11838ff222afa844a84eb4d22e32a0659",
+    "record_blob": "b4c93637eac68f3db864592523184b4728a27b2c",
+    "record_path": "documentacao/TB-20261102T061143Z-66F753A8.json"
+  },
+  "base_commit": "e59f1c54454a5e3294bb83c83337f31866387aa3",
+  "record_hash": "78e3b74f7d6afb2e30fab170baf2cf430914412d275af42ed3381360801f5b5e",
+  "files": [
+    {
+      "path": "ESTADO-ATUAL.md",
+      "before_sha256_raw": "541b55f5153f958d6ae33961866c06f83b4df142000a8b32fa9edacbf99f5ee1",
+      "after_sha256_raw": "f6dce875686afb2d95f20d6764e26bbaf8de0b40e97029f9cc4f2353623e4c85",
+      "after_sha256_normalized_utf8_lf": "f6dce875686afb2d95f20d6764e26bbaf8de0b40e97029f9cc4f2353623e4c85"
+    }
+  ],
+  "meaning": "Evidencia de incorporacao documental local; nao declara commit final, publicacao, reload, teste ou aprovacao de gameplay."
+}
