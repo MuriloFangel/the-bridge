@@ -1,15 +1,15 @@
-# Bridge-Delivery-ID: TB-20261101-MOD3-3A9ABB2C
-# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
-# Bridge-Source-Core-SHA256: 3a9abb2cce17784c2dd8b5c14f423acf25101a7b96596951fefc4339eacdef00
+# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
+# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
 # ================================================================
 # THE BRIDGE - GAMEPLAY / COMBATE, RESPAWN, ITENS E CONSTRUÇÃO
-# Extração mecânica do Core; regras, nomes e corpos dos blocos preservados.
+# Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
 # Requer o conjunto de módulos Bridge existente; não é um script independente.
 # Revisão estática não certifica carregamento nem gameplay.
 # ================================================================
 
 import:
     org.bukkit.util.Vector
+    org.bukkit.event.entity.EntityDamageByEntityEvent as BridgeDamageByEntityEvent
 
 on hunger meter change:
     set food level to 20
@@ -24,6 +24,18 @@ function bridge_respawnPlayer(p: player, deathType: text = "VOID", killerName: t
     set {_inst} to {bridge::player::%{_p}'s uuid%::instance}
     if {_inst} is not set:
         stop
+    if bridge_isPresent({_p}, {_inst}) is not true:
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        stop
+    if bridge_pauseActionsBlocked({_inst}) is true:
+        stop
+    if {_killerName} is not "":
+        set {_validated} to bridge_validTagName({_p})
+        if {_validated} is not {_killerName}:
+            set {_killerName} to ""
+            if {_deathType} is "VOID_KILL":
+                set {_deathType} to "VOID"
     set {_arena} to {bridge::instance::%{_inst}%::arena}
     set {_team} to {bridge::player::%{_p}'s uuid%::team}
     set {_orig} to {bridge::arena::%{_arena}%::team::%{_team}%::sponge}
@@ -71,72 +83,43 @@ function bridge_respawnPlayer(p: player, deathType: text = "VOID", killerName: t
     set {_zero} to new Vector(0, 0, 0)
     {_p}.setVelocity({_zero})
 
-    set {bridge::player::%{_p}'s uuid%::respawn_protection} to true
-    wait 2 seconds
-    delete {bridge::player::%{_p}'s uuid%::respawn_protection}
-
 on player move:
     if {bridge::player::%player's uuid%::state} is not "INGAME":
         stop
-
     set {_inst} to {bridge::player::%player's uuid%::instance}
     if {_inst} is not set:
         stop
-
+    if bridge_isPresent(player, {_inst}) is not true:
+        stop
     if bridge_pauseItemsBlocked({_inst}) is true:
         cancel event
         stop
-
     if bridge_pauseActionsBlocked({_inst}) is true:
         stop
     if {bridge::instance::%{_inst}%::state} is not "INGAME":
         stop
-
     set {_arena} to {bridge::instance::%{_inst}%::arena}
-    
     if y-coordinate of player < {bridge::arena::%{_arena}%::y-void}:
-        set {_lastAtkName} to {-bridge::player::%player's uuid%::last_attacker_name}
-        set {_lastAtkTime} to {-bridge::player::%player's uuid%::last_attacker_time}
-        set {_validTag} to false
-        if {_lastAtkName} is set:
-            if {_lastAtkTime} is set:
-                set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
-                if {_elapsed} <= 5:
-                    set {_validTag} to true
-        if {_validTag} is true:
-            set {_pAtk} to {_lastAtkName} parsed as offline player
-            if {_pAtk} is online:
-                bridge_respawnPlayer(player, "VOID_KILL", {_lastAtkName})
-            else:
-                bridge_respawnPlayer(player, "VOID", "")
-        else:
+        set {_killer} to bridge_validTagName(player)
+        if {_killer} is "":
             bridge_respawnPlayer(player, "VOID", "")
+        else:
+            bridge_respawnPlayer(player, "VOID_KILL", {_killer})
         stop
-
     set {_team} to {bridge::player::%player's uuid%::team}
-    
     loop {bridge::arena::%{_arena}%::team::%{_team}%::portals::*}:
         set {_ownPortal} to bridge_getLoc(loop-value, {_inst})
         if world of player is world of {_ownPortal}:
             if distance between location of player and {_ownPortal} <= 2.2:
-                set {_lastAtkName} to {-bridge::player::%player's uuid%::last_attacker_name}
-                set {_lastAtkTime} to {-bridge::player::%player's uuid%::last_attacker_time}
-                set {_validTag} to false
-                if {_lastAtkName} is set:
-                    if {_lastAtkTime} is set:
-                        set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
-                        if {_elapsed} <= 5:
-                            set {_validTag} to true
-                if {_validTag} is true:
-                    bridge_respawnPlayer(player, "VOID_KILL", {_lastAtkName})
-                else:
+                set {_killer} to bridge_validTagName(player)
+                if {_killer} is "":
                     bridge_respawnPlayer(player, "SELF_PORTAL", "")
+                else:
+                    bridge_respawnPlayer(player, "VOID_KILL", {_killer})
                 stop
-
     set {_enemy} to 1
     if {_team} is 1:
         set {_enemy} to 2
-
     loop {bridge::arena::%{_arena}%::team::%{_enemy}%::portals::*}:
         set {_goalLoc} to bridge_getLoc(loop-value, {_inst})
         if world of player is world of {_goalLoc}:
@@ -172,20 +155,53 @@ on consume of golden apple:
         else:
             send "%{bridge::config::prefix}% &eMaçã consumida &8| &7Vida restaurada; sem nova absorção nesta vida." to player
 
-on shoot:
-    if shooter is player:
-        if {bridge::player::%shooter's uuid%::state} is "INGAME":
-            set {_gInst} to {bridge::player::%shooter's uuid%::instance}
-            if bridge_pauseActionsBlocked({_gInst}) is true:
-                cancel event
-                stop
-            wait 3.5 seconds
-            if {bridge::player::%shooter's uuid%::state} is "INGAME":
-                if shooter's inventory does not contain arrow:
-                    set slot 8 of shooter's inventory to 1 arrow
-                    bridge_corePling(shooter, 1.8)
-                    bridge_sendActionBar(shooter, "&a+1 Flecha regenerada!")
-                    send "%{bridge::config::prefix}% &aFlecha reposta &8| &7O arco está disponível." to shooter
+on shoot with priority highest:
+    if event.isCancelled() is true:
+        stop
+    if shooter is not player:
+        stop
+    set {_p} to shooter
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is not set:
+        stop
+    if bridge_isPresent({_p}, {_inst}) is not true:
+        cancel event
+        stop
+    if bridge_pauseActionsBlocked({_inst}) is true:
+        cancel event
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        cancel event
+        stop
+    set {_sid} to {bridge::instance::%{_inst}%::match_id}
+    set {_life} to {bridge::player::%{_u}%::life_id}
+    if {_sid} is not set:
+        cancel event
+        stop
+    if {_life} is not set:
+        cancel event
+        stop
+    set {_arrow} to event.getProjectile()
+    set {_id} to {_arrow}.getUniqueId().toString()
+    set {-bridge::arrows::%{_id}%::instance} to {_inst}
+    set {-bridge::arrows::%{_id}%::match_id} to {_sid}
+    set {-bridge::arrows::%{_id}%::shooter} to {_u}
+    set {-bridge::arrow_entities::%{_id}%} to {_arrow}
+    wait 3.5 seconds
+    if {_p} is not online:
+        stop
+    if bridge_isPresent({_p}, {_inst}) is not true:
+        stop
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        stop
+    if {bridge::player::%{_u}%::life_id} is not {_life}:
+        stop
+    if {_p}'s inventory does not contain arrow:
+        set slot 8 of {_p}'s inventory to 1 arrow
+        bridge_corePling({_p}, 1.8)
+        bridge_sendActionBar({_p}, "&a+1 Flecha regenerada!")
+        send "%{bridge::config::prefix}% &aFlecha reposta &8| &7O arco está disponível." to {_p}
 
 on pickup:
     if {bridge::player::%player's uuid%::state} is "INGAME":
@@ -323,71 +339,144 @@ on block break:
 
     cancel event
 
-on damage:
-    if victim is player:
-        set {_inst} to {bridge::player::%victim's uuid%::instance}
-        
-        if {_inst} is not set:
+on damage with priority highest:
+    if victim is not player:
+        stop
+    set {_v} to victim
+    set {_u} to {_v}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is not set:
+        cancel event
+        stop
+    if bridge_isPresent({_v}, {_inst}) is not true:
+        cancel event
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        cancel event
+        stop
+    if bridge_pauseActionsBlocked({_inst}) is true:
+        cancel event
+        stop
+    if event.isCancelled() is true:
+        stop
+    set {_until} to {bridge::player::%{_u}%::respawn_protected_until}
+    if {_until} is set:
+        if (unix timestamp of now) < {_until}:
             cancel event
             stop
-
-        if bridge_pauseActionsBlocked({_inst}) is true:
+    if damage cause is fall:
+        cancel event
+        stop
+    set {_projectile} to false
+    if event is an instance of BridgeDamageByEntityEvent:
+        set {_raw} to event.getDamager()
+        if {_raw}.getType().name() is "ARROW":
+            set {_projectile} to true
+            set {_a} to {_raw}.getShooter()
+            if {_a} is not player:
+                cancel event
+                stop
+            set {_id} to {_raw}.getUniqueId().toString()
+            if {-bridge::arrows::%{_id}%::instance} is not {_inst}:
+                cancel event
+                stop
+            if {-bridge::arrows::%{_id}%::match_id} is not {bridge::instance::%{_inst}%::match_id}:
+                cancel event
+                stop
+            if {-bridge::arrows::%{_id}%::shooter} is not {_a}'s uuid:
+                cancel event
+                stop
+        else:
+            set {_a} to {_raw}
+            if {_a} is not player:
+                cancel event
+                stop
+        if bridge_combatAllowed({_a}, {_v}) is not true:
+            # Bloqueia dano/tag/feedback; NÃO declara atravessamento de aliados.
             cancel event
             stop
+        set {-bridge::player::%{_u}%::last_attacker_name} to name of {_a}
+        set {-bridge::player::%{_u}%::last_attacker_uuid} to {_a}'s uuid
+        set {-bridge::player::%{_u}%::last_attacker_time} to unix timestamp of now
+        set {-bridge::player::%{_u}%::tag_match_id} to {bridge::instance::%{_inst}%::match_id}
+        set {-bridge::player::%{_u}%::tag_life_id} to {bridge::player::%{_u}%::life_id}
+    if damage cause is void:
+        cancel event
+        set {_killer} to bridge_validTagName({_v})
+        if {_killer} is "":
+            bridge_respawnPlayer({_v}, "VOID", "")
+        else:
+            bridge_respawnPlayer({_v}, "VOID_KILL", {_killer})
+        stop
+    # Ambos são HP Bukkit. getFinalDamage inclui os modificadores do evento.
+    set {_final} to event.getFinalDamage()
+    set {_health} to {_v}.getHealth()
+    if {_final} < 0:
+        set {_final} to 0
+    if {_projectile} is true:
+        set {_after} to {_health} - {_final}
+        bridge_projectileFeedback({_a}, {_v}, {_after})
+    if {_final} >= {_health}:
+        cancel event
+        set {_killer} to bridge_validTagName({_v})
+        bridge_respawnPlayer({_v}, "KILL", {_killer})
 
-        if {bridge::instance::%{_inst}%::state} is not "INGAME":
-            cancel event
-            stop
 
-        if {bridge::player::%victim's uuid%::respawn_protection} is set:
-            cancel event
-            if attacker is player:
-                send "%{bridge::config::erro}% &eAtaque bloqueado: o jogador está protegido após renascer." to attacker
-            stop
+# Um ataque autorizado pertence à mesma sessão ativa e a times adversários.
+function bridge_combatAllowed(a: player, v: player) :: boolean:
+    if {_a} is {_v}:
+        return false
+    set {_inst} to {bridge::player::%{_v}'s uuid%::instance}
+    if {_inst} is not set:
+        return false
+    if bridge_isPresent({_a}, {_inst}) is not true:
+        return false
+    if bridge_isPresent({_v}, {_inst}) is not true:
+        return false
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        return false
+    if bridge_pauseActionsBlocked({_inst}) is true:
+        return false
+    if world of {_a} is not world of {_v}:
+        return false
+    set {_at} to {bridge::player::%{_a}'s uuid%::team}
+    set {_vt} to {bridge::player::%{_v}'s uuid%::team}
+    if {_at} is not set:
+        return false
+    if {_vt} is not set:
+        return false
+    if {_at} is {_vt}:
+        return false
+    return true
 
-        if damage cause is fall:
-            cancel event
-            stop
+function bridge_validTagName(v: player) :: text:
+    set {_u} to {_v}'s uuid
+    set {_name} to {-bridge::player::%{_u}%::last_attacker_name}
+    set {_time} to {-bridge::player::%{_u}%::last_attacker_time}
+    if {_name} is not set:
+        return ""
+    if {_time} is not set:
+        return ""
+    if (unix timestamp of now) - {_time} > 5:
+        return ""
+    if {-bridge::player::%{_u}%::tag_match_id} is not {bridge::player::%{_u}%::match_id}:
+        return ""
+    if {-bridge::player::%{_u}%::tag_life_id} is not {bridge::player::%{_u}%::life_id}:
+        return ""
+    set {_a} to {_name} parsed as player
+    if {_a} is not set:
+        return ""
+    if {_a}'s uuid is not {-bridge::player::%{_u}%::last_attacker_uuid}:
+        return ""
+    if bridge_combatAllowed({_a}, {_v}) is not true:
+        return ""
+    return {_name}
 
-        if attacker is player:
-            if attacker is not victim:
-                set {-bridge::player::%victim's uuid%::last_attacker_name} to name of attacker
-                set {-bridge::player::%victim's uuid%::last_attacker_time} to (unix timestamp of now)
-
-        if damage cause is void:
-            cancel event
-            set {_lastAtkName} to {-bridge::player::%victim's uuid%::last_attacker_name}
-            set {_lastAtkTime} to {-bridge::player::%victim's uuid%::last_attacker_time}
-            set {_validTag} to false
-            if {_lastAtkName} is set:
-                if {_lastAtkTime} is set:
-                    set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
-                    if {_elapsed} <= 5:
-                        set {_validTag} to true
-            if {_validTag} is true:
-                set {_pAtk} to {_lastAtkName} parsed as offline player
-                if {_pAtk} is online:
-                    bridge_respawnPlayer(victim, "VOID_KILL", {_lastAtkName})
-                else:
-                    bridge_respawnPlayer(victim, "VOID", "")
-            else:
-                bridge_respawnPlayer(victim, "VOID", "")
-            stop
-
-        if damage >= victim's health:
-            cancel event
-            if attacker is player:
-                bridge_respawnPlayer(victim, "KILL", name of attacker)
-            else:
-                set {_lastAtkName} to {-bridge::player::%victim's uuid%::last_attacker_name}
-                set {_lastAtkTime} to {-bridge::player::%victim's uuid%::last_attacker_time}
-                set {_validTag} to false
-                if {_lastAtkName} is set:
-                    if {_lastAtkTime} is set:
-                        set {_elapsed} to (unix timestamp of now) - {_lastAtkTime}
-                        if {_elapsed} <= 5:
-                            set {_validTag} to true
-                if {_validTag} is true:
-                    bridge_respawnPlayer(victim, "KILL", {_lastAtkName})
-                else:
-                    bridge_respawnPlayer(victim, "KILL", "")
+# Remove referências de projéteis encerrados; não remove entidades do mundo.
+every 10 seconds:
+    loop {-bridge::arrow_entities::*}:
+        set {_entity} to loop-value
+        if {_entity}.isValid() is false:
+            set {_key} to loop-index
+            delete {-bridge::arrows::%{_key}%::*}
+            delete {-bridge::arrow_entities::%{_key}%}

@@ -1,7 +1,7 @@
-# Bridge-Delivery-ID: TB-20261101T061211Z-F615A3D1
-# Bridge-Base-Commit: 57f3a58f67ea82ea5e5c4db5a01856383e847627
+# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
+# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
 # ================================================================
-# THE BRIDGE - KIT E ARMADURA (EXTRAÇÃO SEM MUDANÇA DE GAMEPLAY)
+# THE BRIDGE - KIT E ARMADURA / IDENTIDADE DE VIDA E PROTEÇÃO
 # Fornece funções ao Bridge-Core.sk. Sem eventos, comandos ou inicialização de partida.
 # ================================================================
 
@@ -52,6 +52,13 @@ function bridge_giveLeatherArmor(p: player, colorData: integer):
     {_inv}.setBoots({_boots})
 
 function bridge_giveKit(p: player, teamColorData: integer):
+    set {_u} to {_p}'s uuid
+    if {-bridge::life_counter} is not set:
+        set {-bridge::life_counter} to 0
+    add 1 to {-bridge::life_counter}
+    set {bridge::player::%{_u}%::life_id} to {-bridge::life_counter}
+    set {bridge::player::%{_u}%::respawn_protected_until} to (unix timestamp of now) + 2
+    delete {bridge::player::%{_u}%::respawn_protection}
     clear {_p}'s inventory
     set {_p}'s gamemode to survival
     {_p}.setHealth(20.0)

@@ -1,9 +1,8 @@
-# Bridge-Delivery-ID: TB-20261101-MOD3-3A9ABB2C
-# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
-# Bridge-Source-Core-SHA256: 3a9abb2cce17784c2dd8b5c14f423acf25101a7b96596951fefc4339eacdef00
+# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
+# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
 # ================================================================
 # THE BRIDGE - CORE / FILA E COORDENAÇÃO DO CICLO DA PARTIDA
-# Extração mecânica do Core; regras, nomes e corpos dos blocos preservados.
+# Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
 # Requer o conjunto de módulos Bridge existente; não é um script independente.
 # Revisão estática não certifica carregamento nem gameplay.
 # ================================================================
@@ -199,6 +198,8 @@ function bridge_startMatch(p1: player, p2: player, arena: text):
         send "%{bridge::config::erro}% &cFalha ao alocar arena. Digite /jogar novamente." to {_p2}
         stop
 
+    bridge_registerDefinitiveAbandon({_p1})
+    bridge_registerDefinitiveAbandon({_p2})
     bridge_detachPrevious({_p1})
     bridge_detachPrevious({_p2})
     remove {_inst} from {bridge::instances::free::*}
@@ -317,18 +318,24 @@ function bridge_endMatch(inst: text, winnerTeam: integer):
     bridge_removeCage({_inst})
 
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
-        bridge_addStat(loop-value, "games", 1)
-        if {_winnerTeam} is 1:
-            bridge_addStat(loop-value, "wins", 1)
-        else if {_winnerTeam} is 2:
-            bridge_addStat(loop-value, "losses", 1)
+        set {_resultUUID} to loop-value's uuid
+        if {bridge::instance::%{_inst}%::members::%{_resultUUID}%::result_recorded} is not true:
+            bridge_addStat(loop-value, "games", 1)
+            if {_winnerTeam} is 1:
+                bridge_addStat(loop-value, "wins", 1)
+            else if {_winnerTeam} is 2:
+                bridge_addStat(loop-value, "losses", 1)
+            set {bridge::instance::%{_inst}%::members::%{_resultUUID}%::result_recorded} to true
 
     loop {bridge::instance::%{_inst}%::team::2::players::*}:
-        bridge_addStat(loop-value, "games", 1)
-        if {_winnerTeam} is 2:
-            bridge_addStat(loop-value, "wins", 1)
-        else if {_winnerTeam} is 1:
-            bridge_addStat(loop-value, "losses", 1)
+        set {_resultUUID} to loop-value's uuid
+        if {bridge::instance::%{_inst}%::members::%{_resultUUID}%::result_recorded} is not true:
+            bridge_addStat(loop-value, "games", 1)
+            if {_winnerTeam} is 2:
+                bridge_addStat(loop-value, "wins", 1)
+            else if {_winnerTeam} is 1:
+                bridge_addStat(loop-value, "losses", 1)
+            set {bridge::instance::%{_inst}%::members::%{_resultUUID}%::result_recorded} to true
 
     set {_arena} to {bridge::instance::%{_inst}%::arena}
     if {_winnerTeam} > 0:
@@ -441,3 +448,23 @@ function bridge_endMatch(inst: text, winnerTeam: integer):
     else:
         remove {_inst} from {bridge::instances::free::*}
         set {bridge::instance::%{_inst}%::state} to "DISABLED"
+
+# Somente reserva efetiva de nova sessão encerra o vínculo anterior.
+function bridge_registerDefinitiveAbandon(p: player):
+    set {_u} to {_p}'s uuid
+    set {_oldInst} to {bridge::return::%{_u}%::instance}
+    set {_oldSid} to {bridge::return::%{_u}%::match_id}
+    if {_oldInst} is not set:
+        stop
+    if {_oldSid} is not set:
+        stop
+    if {bridge::instance::%{_oldInst}%::match_id} is not {_oldSid}:
+        stop
+    if {bridge::instance::%{_oldInst}%::members::%{_u}%::match_id} is not {_oldSid}:
+        stop
+    if {bridge::instance::%{_oldInst}%::members::%{_u}%::result_recorded} is true:
+        stop
+    bridge_addStat({_p}, "games", 1)
+    bridge_addStat({_p}, "losses", 1)
+    set {bridge::instance::%{_oldInst}%::members::%{_u}%::result_recorded} to true
+    set {bridge::instance::%{_oldInst}%::members::%{_u}%::individual_result} to "ABANDON"
