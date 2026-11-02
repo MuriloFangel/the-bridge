@@ -1,4 +1,4 @@
-# Bridge-Delivery-ID: TB-20261101T063604Z-7CFA5B2B
+# Bridge-Delivery-ID: TB-20261102T064403Z-D6BD7F68
 # Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
 # ================================================================
 # THE BRIDGE - FLUXO DE RODADA E GOLS / EXTRAÇÃO MECÂNICA
@@ -153,11 +153,13 @@ function bridge_scoreGoal(inst: text, p: player, team: integer):
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
         if bridge_isPresent(loop-value, {_inst}) is true:
             send {_msgGoal} to loop-value
-            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+            set {_listener} to loop-value
+            {_listener}.playSound({_listener}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
     loop {bridge::instance::%{_inst}%::team::2::players::*}:
         if bridge_isPresent(loop-value, {_inst}) is true:
             send {_msgGoal} to loop-value
-            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+            set {_listener} to loop-value
+            {_listener}.playSound({_listener}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
 
     if {bridge::instance::%{_inst}%::golden_goal} is true:
         bridge_endMatch({_inst}, {_team})
