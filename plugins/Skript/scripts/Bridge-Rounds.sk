@@ -1,0 +1,168 @@
+# Bridge-Delivery-ID: TB-20261101T063604Z-7CFA5B2B
+# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
+# ================================================================
+# THE BRIDGE - FLUXO DE RODADA E GOLS / EXTRAÇÃO MECÂNICA
+# Cages físicas: Bridge-Cages.sk. Kit: Bridge-Loadout.sk.
+# Sessão/encerramento, relógio, votos e eventos permanecem no Core.
+# ================================================================
+
+import:
+    org.bukkit.Sound
+
+function bridge_startRound(inst: text, goalScorerName: text = ""):
+    set {_state} to {bridge::instance::%{_inst}%::state}
+    if {_state} is not "STARTING":
+        if {_state} is not "GOAL":
+            stop
+
+    set {_matchId} to {bridge::instance::%{_inst}%::match_id}
+    if {_matchId} is not set:
+        stop
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {bridge::instance::%{_inst}%::state} to "CAGE"
+
+    set {_c1} to {bridge::arena::%{_arena}%::team::1::cage}
+    if {_c1} is set:
+        set {_orig1} to {_c1}
+    else:
+        set {_sponge1} to {bridge::arena::%{_arena}%::team::1::sponge}
+        set {_orig1} to location 7 blocks above {_sponge1}
+        set yaw of {_orig1} to yaw of {_sponge1}
+        set pitch of {_orig1} to pitch of {_sponge1}
+
+    set {_c2} to {bridge::arena::%{_arena}%::team::2::cage}
+    if {_c2} is set:
+        set {_orig2} to {_c2}
+    else:
+        set {_sponge2} to {bridge::arena::%{_arena}%::team::2::sponge}
+        set {_orig2} to location 7 blocks above {_sponge2}
+        set yaw of {_orig2} to yaw of {_sponge2}
+        set pitch of {_orig2} to pitch of {_sponge2}
+
+    set {_dest1} to bridge_getLoc({_orig1}, {_inst})
+    set {_dest2} to bridge_getLoc({_orig2}, {_inst})
+
+    set {_cData1} to {bridge::arena::%{_arena}%::team::1::color}
+    set {_cData2} to {bridge::arena::%{_arena}%::team::2::color}
+    set {_tCode1} to bridge_getTeamColorCode({_cData1})
+    set {_tCode2} to bridge_getTeamColorCode({_cData2})
+
+    bridge_buildCage({_dest1}, {_cData1}, {_inst})
+    bridge_buildCage({_dest2}, {_cData2}, {_inst})
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            teleport loop-value to {_dest1}
+            bridge_giveKit(loop-value, {_cData1})
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            teleport loop-value to {_dest2}
+            bridge_giveKit(loop-value, {_cData2})
+
+    bridge_fixVisibility({_inst})
+
+    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+
+    loop 5 times:
+        if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+            stop
+        if {bridge::instance::%{_inst}%::state} is not "CAGE":
+            bridge_removeCage({_inst})
+            stop
+
+        set {_sec} to 6 - loop-value-1
+        set {_sub} to "&7A rodada vai começar!"
+        if {_goalScorerName} is not "":
+            set {_sub} to "&fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}% &7(Iniciando em %{_sec}%s)"
+
+        loop {bridge::instance::%{_inst}%::team::1::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                if {_goalScorerName} is not "":
+                    bridge_coreTitle(loop-value-2, "&aGOL DE %{_goalScorerName}%!", {_sub}, 20)
+                else:
+                    bridge_coreTitle(loop-value-2, "&e%{_sec}%", {_sub}, 20)
+                bridge_corePling(loop-value-2, 1.0)
+                if {_sec} is 5:
+                    if {_goalScorerName} is not "":
+                        send "%{bridge::config::prefix}% &aGOL DE %{_goalScorerName}%! &fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%" to loop-value-2
+                    else:
+                        send "%{bridge::config::prefix}% &eA rodada inicia em 5 segundos..." to loop-value-2
+
+        loop {bridge::instance::%{_inst}%::team::2::players::*}:
+            if bridge_isPresent(loop-value-2, {_inst}) is true:
+                if {_goalScorerName} is not "":
+                    bridge_coreTitle(loop-value-2, "&aGOL DE %{_goalScorerName}%!", {_sub}, 20)
+                else:
+                    bridge_coreTitle(loop-value-2, "&e%{_sec}%", {_sub}, 20)
+                bridge_corePling(loop-value-2, 1.0)
+                if {_sec} is 5:
+                    if {_goalScorerName} is not "":
+                        send "%{bridge::config::prefix}% &aGOL DE %{_goalScorerName}%! &fPlacar: %{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%" to loop-value-2
+                    else:
+                        send "%{bridge::config::prefix}% &eA rodada inicia em 5 segundos..." to loop-value-2
+
+        wait 1 second
+
+    if {bridge::instance::%{_inst}%::match_id} is not {_matchId}:
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "CAGE":
+        bridge_removeCage({_inst})
+        stop
+
+    bridge_removeCage({_inst})
+    set {bridge::instance::%{_inst}%::state} to "INGAME"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aVALENDO!", "&7Cruze a ponte e marque o gol!", 20)
+            send "%{bridge::config::prefix}% &a&lVALENDO! &7Cruze a ponte e marque o gol!" to loop-value
+            bridge_corePling(loop-value, 2.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            bridge_coreTitle(loop-value, "&aVALENDO!", "&7Cruze a ponte e marque o gol!", 20)
+            send "%{bridge::config::prefix}% &a&lVALENDO! &7Cruze a ponte e marque o gol!" to loop-value
+            bridge_corePling(loop-value, 2.0)
+
+function bridge_scoreGoal(inst: text, p: player, team: integer):
+    if bridge_pauseActionsBlocked({_inst}) is true:
+        stop
+    if {bridge::instance::%{_inst}%::state} is not "INGAME":
+        stop
+
+    if {bridge::instance::%{_inst}%::voting::active} is true:
+        if {bridge::instance::%{_inst}%::voting::type} is "PAUSA":
+            delete {bridge::instance::%{_inst}%::voting::active}
+            bridge_chatInstance({_inst}, "&ePedido de pausa cancelado pelo gol. Nenhuma cota foi consumida; peça novamente na próxima rodada.")
+    set {bridge::instance::%{_inst}%::state} to "GOAL"
+    add 1 to {bridge::instance::%{_inst}%::team::%{_team}%::score}
+    
+    bridge_addStat({_p}, "goals", 1)
+    add 1 to {bridge::player::%{_p}'s uuid%::match_goals}
+
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_scorerFormatted} to bridge_getFormattedPlayerName({_p})
+    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
+    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+
+    set {_tCode1} to bridge_getTeamColorCode({bridge::arena::%{_arena}%::team::1::color})
+    set {_tCode2} to bridge_getTeamColorCode({bridge::arena::%{_arena}%::team::2::color})
+    set {_msgGoal} to "%{bridge::config::prefix}% &a&lGOL! %{_scorerFormatted}% &7marcou o ponto! &8(%{_tCode1}%%{_s1}% &8x %{_tCode2}%%{_s2}%&8)"
+
+    loop {bridge::instance::%{_inst}%::team::1::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgGoal} to loop-value
+            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+    loop {bridge::instance::%{_inst}%::team::2::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send {_msgGoal} to loop-value
+            {_p}.playSound({_p}.getLocation(), Sound.LEVEL_UP, 1.0, 1.0)
+
+    if {bridge::instance::%{_inst}%::golden_goal} is true:
+        bridge_endMatch({_inst}, {_team})
+    else if {bridge::instance::%{_inst}%::team::%{_team}%::score} >= {bridge::arena::%{_arena}%::gols}:
+        bridge_endMatch({_inst}, {_team})
+    else:
+        bridge_startRound({_inst}, {_scorerFormatted})
+

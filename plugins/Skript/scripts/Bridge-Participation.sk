@@ -1,0 +1,279 @@
+# Bridge-Delivery-ID: TB-20261101T064731Z-37E2A4B1
+# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
+# ================================================================
+# THE BRIDGE - PARTICIPAÇÃO, LOBBY E RETORNO
+# Extração mecânica. Decisões de congelamento/cota/timeout permanecem no Core.
+# Comandos, eventos, funções e variáveis existentes mantidos.
+# ================================================================
+
+import:
+    org.bukkit.util.Vector
+
+function bridge_isPresent(p: player, inst: text) :: boolean:
+    if {_p} is not online:
+        return false
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is not "INGAME":
+        return false
+    if {bridge::player::%{_u}%::instance} is not {_inst}:
+        return false
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is not true:
+        return false
+    set {_sid} to {bridge::instance::%{_inst}%::match_id}
+    if {_sid} is not set:
+        set {_sid} to {bridge::instance::%{_inst}%::closing_id}
+    if {_sid} is not set:
+        return false
+    if {bridge::player::%{_u}%::match_id} is not {_sid}:
+        return false
+    return true
+
+function bridge_presentCount(inst: text, team: integer) :: integer:
+    set {_n} to 0
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_n}
+    return {_n}
+
+function bridge_absenceSufficient(inst: text) :: boolean:
+    loop 2 times:
+        set {_t} to loop-value
+        set {_init} to {bridge::instance::%{_inst}%::team::%{_t}%::initial_size}
+        if {_init} > 0:
+            set {_n} to bridge_presentCount({_inst}, {_t})
+            if ({_n} / {_init}) < 0.5:
+                return false
+    return true
+
+function bridge_offerReturn(p: player):
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::return::%{_u}%::instance}
+    set {_sid} to {bridge::return::%{_u}%::match_id}
+    if {_inst} is not set:
+        stop
+    if {_sid} is not set:
+        stop
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        delete {bridge::return::%{_u}%::*}
+        stop
+    send "%{bridge::config::prefix}% &eRetorno disponível &8| &f/retornar &7ou botão abaixo." to {_p}
+    send " &7Você volta ao spawn do seu time com kit, nunca à posição de saída." to {_p}
+    send " &7Começar outra partida encerra este direito de retorno." to {_p}
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        set {_waitLeft} to {bridge::instance::%{_inst}%::freeze_timer}
+        if {_waitLeft} is set:
+            send " &eEspera por presença: %{_waitLeft}%s restantes. O prazo não é reiniciado por novas saídas." to {_p}
+    execute console command "tellraw %{_p}% {""text"":""[RETORNAR À PARTIDA]"",""color"":""green"",""bold"":true,""clickEvent"":{""action"":""run_command"",""value"":""/retornar""}}"
+
+function bridge_leaveToLobby(p: player):
+    clear {_p}'s inventory
+    remove regeneration from {_p}
+    remove absorption from {_p}
+    set {_inv} to {_p}.getInventory()
+    {_inv}.setHelmet(null)
+    {_inv}.setChestplate(null)
+    {_inv}.setLeggings(null)
+    {_inv}.setBoots(null)
+    {_p}.setHealth(20.0)
+    {_p}.setFoodLevel(20)
+    {_p}.setFireTicks(0)
+    {_p}.setFallDistance(0.0)
+    set {_zero} to new Vector(0, 0, 0)
+    {_p}.setVelocity({_zero})
+    set {_p}'s gamemode to adventure
+    if {bridge::config::lobby} is set:
+        teleport {_p} to {bridge::config::lobby}
+
+function bridge_markAbsent(p: player):
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is not set:
+        stop
+    if {bridge::player::%{_u}%::state} is not "INGAME":
+        stop
+    set {_sid} to {bridge::instance::%{_inst}%::match_id}
+    if {_sid} is not set:
+        # Celebração/encerramento não abre uma nova espera de ausência.
+        set {bridge::instance::%{_inst}%::members::%{_u}%::present} to false
+        delete {bridge::player::%{_u}%::state}
+        stop
+    if {bridge::player::%{_u}%::match_id} is not {_sid}:
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is not true:
+        stop
+    set {_team} to {bridge::player::%{_u}%::team}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::present} to false
+    set {bridge::instance::%{_inst}%::members::%{_u}%::match_kills} to {bridge::player::%{_u}%::match_kills}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::match_goals} to {bridge::player::%{_u}%::match_goals}
+    set {bridge::return::%{_u}%::instance} to {_inst}
+    set {bridge::return::%{_u}%::match_id} to {_sid}
+    delete {bridge::player::%{_u}%::*}
+    delete {-bridge::player::%{_u}%::last_attacker_name}
+    delete {-bridge::player::%{_u}%::last_attacker_time}
+    bridge_checkDisconnectState({_inst}, {_team}, name of {_p})
+    bridge_checkVoteEarlyComplete({_inst})
+
+function bridge_detachPrevious(p: player):
+    set {_u} to {_p}'s uuid
+    set {_oldInst} to {bridge::return::%{_u}%::instance}
+    set {_oldSid} to {bridge::return::%{_u}%::match_id}
+    if {_oldInst} is set:
+        if {bridge::instance::%{_oldInst}%::match_id} is {_oldSid}:
+            loop 2 times:
+                set {_t} to loop-value
+                loop {bridge::instance::%{_oldInst}%::team::%{_t}%::players::*}:
+                    set {_oldPlayer} to loop-value-2
+                    if {_oldPlayer}'s uuid is {_u}:
+                        remove loop-value-2 from {bridge::instance::%{_oldInst}%::team::%{_t}%::players::*}
+            set {bridge::instance::%{_oldInst}%::members::%{_u}%::present} to false
+            set {bridge::instance::%{_oldInst}%::members::%{_u}%::detached} to true
+    if {_oldInst} is set:
+        send "%{bridge::config::prefix}% &eNova partida reservada. &7O retorno à sessão anterior foi encerrado." to {_p}
+    delete {bridge::return::%{_u}%::*}
+
+function bridge_reconnectPlayer(p: player, inst: text, team: integer):
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is set:
+        send "%{bridge::config::erro}% &cVocê já está em uma fila ou partida; retorno não executado." to {_p}
+        stop
+    set {_sid} to {bridge::return::%{_u}%::match_id}
+    if {_sid} is not set:
+        send "%{bridge::config::erro}% &cNão há vínculo de retorno disponível." to {_p}
+        stop
+    if {bridge::return::%{_u}%::instance} is not {_inst}:
+        send "%{bridge::config::erro}% &cO vínculo de retorno não corresponde a esta partida." to {_p}
+        stop
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        send "%{bridge::config::erro}% &cA sessão anterior já foi encerrada." to {_p}
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::match_id} is not {_sid}:
+        send "%{bridge::config::erro}% &cSeu registro não pertence mais à sessão anterior." to {_p}
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::detached} is true:
+        send "%{bridge::config::erro}% &cSeu vínculo com a partida anterior foi encerrado." to {_p}
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::team} is not {_team}:
+        send "%{bridge::config::erro}% &cSeu time de retorno não corresponde ao registro da partida." to {_p}
+        stop
+    if {bridge::instance::%{_inst}%::members::%{_u}%::present} is true:
+        send "%{bridge::config::erro}% &cVocê já consta como presente; retorno não executado." to {_p}
+        stop
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_orig} to {bridge::arena::%{_arena}%::team::%{_team}%::sponge}
+    set {_dest} to bridge_getLoc({_orig}, {_inst})
+    set {bridge::player::%{_u}%::instance} to {_inst}
+    set {bridge::player::%{_u}%::team} to {_team}
+    set {bridge::player::%{_u}%::match_id} to {_sid}
+    set {bridge::player::%{_u}%::state} to "INGAME"
+    set {bridge::player::%{_u}%::match_kills} to {bridge::instance::%{_inst}%::members::%{_u}%::match_kills}
+    set {bridge::player::%{_u}%::match_goals} to {bridge::instance::%{_inst}%::members::%{_u}%::match_goals}
+    # Substitui a referência antiga de Player pela conexão atual, usando UUID.
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        set {_oldPlayer} to loop-value
+        if {_oldPlayer}'s uuid is {_u}:
+            remove loop-value from {bridge::instance::%{_inst}%::team::%{_team}%::players::*}
+    add {_p} to {bridge::instance::%{_inst}%::team::%{_team}%::players::*}
+    set {bridge::instance::%{_inst}%::members::%{_u}%::present} to true
+    teleport {_p} to {_dest}
+    bridge_giveKit({_p}, {bridge::arena::%{_arena}%::team::%{_team}%::color})
+    set {_zero} to new Vector(0, 0, 0)
+    {_p}.setVelocity({_zero})
+    delete {bridge::return::%{_u}%::*}
+    send "%{bridge::config::prefix}% &aVocê retornou pelo spawn do seu time, com kit completo!" to {_p}
+    if {bridge::instance::%{_inst}%::in_pause} is true:
+        set {_cageOrig} to {bridge::arena::%{_arena}%::team::%{_team}%::cage}
+        if {_cageOrig} is not set:
+            set {_cageOrig} to location 7 blocks above {_orig}
+            set yaw of {_cageOrig} to yaw of {_orig}
+            set pitch of {_cageOrig} to pitch of {_orig}
+        set {_cageDest} to bridge_getLoc({_cageOrig}, {_inst})
+        teleport {_p} to {_cageDest}
+        send " &7A pausa solicitada ainda está ativa: aguarde na cage do seu time." to {_p}
+    set {_backName} to bridge_getFormattedPlayerName({_p})
+    bridge_chatInstance({_inst}, "%{_backName}% &aretornou à partida pelo spawn do time.")
+    if {bridge::instance::%{_inst}%::frozen} is true:
+        if {bridge::instance::%{_inst}%::freeze_reason} is "DISCONNECT":
+            if bridge_absenceSufficient({_inst}) is true:
+                bridge_resumeMatchSpot({_inst})
+            else:
+                send "%{bridge::config::prefix}% &ePresença ainda insuficiente. A partida segue congelada." to {_p}
+    if {bridge::instance::%{_inst}%::match_id} is {_sid}:
+        bridge_checkVoteEarlyComplete({_inst})
+
+command /bridgelobby:
+    permission: bridge.admin
+    executable by: players
+    trigger:
+        set {bridge::config::lobby} to location of player
+        send "%{bridge::config::sucesso}% &aLobby salvo na sua posição atual. &7O clima desse mundo será protegido." to player
+
+command /l [<text>]:
+    aliases: /leave, /lobby, /sair
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is "QUEUE":
+            set {_arena} to {bridge::player::%{_u}%::queue_arena}
+            remove player from {bridge::queue::%{_arena}%::*}
+            delete {bridge::player::%{_u}%::*}
+            send "%{bridge::config::prefix}% &eVocê saiu da fila de espera." to player
+        else if {bridge::player::%{_u}%::state} is "INGAME":
+            bridge_markAbsent(player)
+            bridge_leaveToLobby(player)
+            send "%{bridge::config::prefix}% &eVocê saiu para o lobby." to player
+            bridge_offerReturn(player)
+            stop
+        if {bridge::config::lobby} is set:
+            teleport player to {bridge::config::lobby}
+        bridge_offerReturn(player)
+
+command /retornar:
+    executable by: players
+    trigger:
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is set:
+            send "%{bridge::config::erro}% &cVocê já está em fila ou partida. &7Para sair da fila antes do retorno, use /l." to player
+            stop
+        set {_inst} to {bridge::return::%{_u}%::instance}
+        set {_sid} to {bridge::return::%{_u}%::match_id}
+        if {_inst} is not set:
+            send "%{bridge::config::erro}% &cVocê não tem uma partida disponível para retornar." to player
+            stop
+        if {_sid} is not set:
+            delete {bridge::return::%{_u}%::*}
+            send "%{bridge::config::erro}% &cO vínculo de retorno não é válido." to player
+            stop
+        if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+            delete {bridge::return::%{_u}%::*}
+            send "%{bridge::config::erro}% &cSua partida anterior já terminou." to player
+            stop
+        set {_team} to {bridge::instance::%{_inst}%::members::%{_u}%::team}
+        if {_team} is not set:
+            send "%{bridge::config::erro}% &cSeu vínculo não possui um time válido." to player
+            stop
+        bridge_reconnectPlayer(player, {_inst}, {_team})
+
+on join:
+    wait 2 ticks
+    if player is not online:
+        stop
+    set {_u} to player's uuid
+    if {bridge::return::%{_u}%::instance} is set:
+        bridge_leaveToLobby(player)
+        bridge_offerReturn(player)
+    else:
+        if {bridge::config::lobby} is set:
+            teleport player to {bridge::config::lobby}
+            set player's gamemode to adventure
+            set player's health to 20
+            set player's food level to 20
+            set player's fall distance to 0
+
+on quit:
+    set {_uuid} to player's uuid
+    if {bridge::player::%{_uuid}%::state} is "QUEUE":
+        set {_arena} to {bridge::player::%{_uuid}%::queue_arena}
+        remove player from {bridge::queue::%{_arena}%::*}
+        delete {bridge::player::%{_uuid}%::*}
+        stop
+    bridge_markAbsent(player)

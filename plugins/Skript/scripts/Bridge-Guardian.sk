@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
-# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
+# Bridge-Delivery-ID: TB-20261101-MOD3-3A9ABB2C
+# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
 # ================================================================
 # THE BRIDGE - GUARDIAN / VERIFICAÇÃO NÃO DESTRUTIVA
 # Atualizar o CATÁLOGO CENTRAL abaixo a cada novo módulo obrigatório.
@@ -18,9 +18,12 @@ function bridge_guardianTell(target: object, msg: text):
 
 function bridge_guardianCheck(target: object, details: boolean = false, force: boolean = true) :: boolean:
     # CATÁLOGO CENTRAL: arquivos obrigatórios, inclusive esta etapa de extração.
-    set {_required::*} to "Bridge-Config.sk", "Bridge-Core.sk", "Bridge-Setup.sk", "Bridge-Instances.sk", "Bridge-Stats.sk", "Bridge-Scoreboard.sk", "Bridge-GUI.sk", "Bridge-Commands.sk", "Bridge-Environment.sk", "Bridge-Loadout.sk", "Bridge-Cages.sk" and "Bridge-Guardian.sk"
+    set {_required::*} to "Bridge-Config.sk", "Bridge-Core.sk", "Bridge-Setup.sk", "Bridge-Instances.sk", "Bridge-Stats.sk", "Bridge-Scoreboard.sk", "Bridge-GUI.sk", "Bridge-Commands.sk", "Bridge-Environment.sk", "Bridge-Loadout.sk", "Bridge-Cages.sk", "Bridge-Rounds.sk", "Bridge-Participation.sk", "Bridge-Voting.sk", "Bridge-Suspension.sk", "Bridge-Gameplay.sk" and "Bridge-Guardian.sk"
     # Probes consultam o registro de funções do Skript; nunca executam a função.
-    set {_probes::Bridge-Core.sk::*} to "bridge_startMatch", "bridge_endMatch", "bridge_isPresent" and "bridge_checkVoteEarlyComplete"
+    set {_probes::Bridge-Core.sk::*} to "bridge_startMatch" and "bridge_endMatch"
+    set {_probes::Bridge-Voting.sk::*} to "bridge_startVote", "bridge_checkVoteEarlyComplete" and "bridge_evaluateVote"
+    set {_probes::Bridge-Suspension.sk::*} to "bridge_tickPauseControl", "bridge_pauseActionsBlocked" and "bridge_resumeFromPause"
+    set {_probes::Bridge-Gameplay.sk::*} to "bridge_respawnPlayer"
     set {_probes::Bridge-Setup.sk::*} to "bridge_showHelp" and "bridge_openMainMenu"
     set {_probes::Bridge-Instances.sk::*} to "bridge_getLoc", "bridge_resetInstance" and "bridge_pasteSchematic"
     set {_probes::Bridge-Stats.sk::*} to "bridge_addStat" and "bridge_getStat"
@@ -30,6 +33,8 @@ function bridge_guardianCheck(target: object, details: boolean = false, force: b
     set {_probes::Bridge-Environment.sk::*} to "bridge_weatherManaged" and "bridge_weatherClear"
     set {_probes::Bridge-Loadout.sk::*} to "bridge_coreColor", "bridge_giveLeatherArmor" and "bridge_giveKit"
     set {_probes::Bridge-Cages.sk::*} to "bridge_buildCage" and "bridge_removeCage"
+    set {_probes::Bridge-Rounds.sk::*} to "bridge_startRound" and "bridge_scoreGoal"
+    set {_probes::Bridge-Participation.sk::*} to "bridge_isPresent", "bridge_presentCount", "bridge_markAbsent" and "bridge_reconnectPlayer"
     set {_probes::Bridge-Guardian.sk::*} to "bridge_guardianCheck"
     # Config só declara evento de load: sua presença não prova que ele executou.
     set {_plugin} to GuardianBukkit.getPluginManager().getPlugin("Skript")
