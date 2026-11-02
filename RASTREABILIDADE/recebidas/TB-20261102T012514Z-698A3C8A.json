@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261102T012514Z-698A3C8A",
+  "status": "GERADA",
+  "created_at": "2026-11-02T01:25:14.0765034+00:00",
+  "base_commit": "bedabbe77178d037a9ee5100f4f09902bf965dd8",
+  "objective": "Excluir desktop.ini da sincronizacao textual sem remover configs .ini legitimas.",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256_normalized_utf8_lf": "2a70ea51059aa59cdbe73633fb1a2d3cce190cc57428cc7b6993757b252d6cf0"
+    }
+  ],
+  "changes": [
+    "Comentarios de identificacao e exclusao final de desktop.ini apos a allowlist textual."
+  ],
+  "must_preserve": [
+    "Scripts e gameplay",
+    "Configuracoes .ini legitimas",
+    "Indice Git",
+    "Historico Git",
+    "Demais regras do gitignore"
+  ],
+  "dependencies": [],
+  "relates_to": [],
+  "tests_performed": [
+    "HEAD e blob-base conferidos.",
+    "Nenhum desktop.ini rastreado na consulta.",
+    "Git check-ignore confirmou exclusao positiva apos a alteracao."
+  ],
+  "tests_pending": [
+    "Novo ciclo do sincronizador e envio ao GitHub."
+  ],
+  "generated_by": "maintenance_local"
+}

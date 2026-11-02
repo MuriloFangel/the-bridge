@@ -1,3 +1,5 @@
+# Bridge-Delivery-ID: TB-20261102T012514Z-698A3C8A
+# Bridge-Base-Commit: bedabbe77178d037a9ee5100f4f09902bf965dd8
 
 
 # BEGIN bridge-github-sync: nomes sensiveis e temporarios comuns
@@ -92,3 +94,7 @@ secrets.*
 /world/
 /worlddddddd/
 # END THE-BRIDGE TEXT-SYNC V1
+
+# BEGIN BRIDGE WINDOWS METADATA V1
+desktop.ini
+# END BRIDGE WINDOWS METADATA V1
