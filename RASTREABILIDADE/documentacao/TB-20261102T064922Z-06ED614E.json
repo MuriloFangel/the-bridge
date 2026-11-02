@@ -1,0 +1,27 @@
+{
+  "schema_version": "bridge-docs-receipt-v1",
+  "delivery_id": "TB-20261102T064922Z-06ED614E",
+  "state": "INCORPORADA_LOCALMENTE",
+  "source": {
+    "ledger_commit": "6b14a836ab8c3757c83cb01f1e9900fa537eab99",
+    "record_blob": "00c15982434644b9efb6973d3d00268488f9d1f7",
+    "record_path": "documentacao/TB-20261102T064922Z-06ED614E.json"
+  },
+  "base_commit": "159c3a592dcbe9310295f3bec379ffc2d1b4f4a3",
+  "record_hash": "9a81c730134422263230f41089e028c84424fe20b574df9320dece3c7defc487",
+  "files": [
+    {
+      "path": "DECISOES.md",
+      "before_sha256_raw": "44e56221f64a481569faf9535dfad55aa31120cdcb0e18b2af8a76f7b28df43e",
+      "after_sha256_raw": "d9507a6a974a238d926cdc503a284dd73383f3c596da079134efac137cb4f251",
+      "after_sha256_normalized_utf8_lf": "f6fce569877a00f95b531ef40969386c7f820890f251780e301bf500b7762baf"
+    },
+    {
+      "path": "TESTES.md",
+      "before_sha256_raw": "b5fe6f8d20d1bb35631dd728b54035e3a703563197d973d0201443e706c0720a",
+      "after_sha256_raw": "b2514d11e823114ab10db9951f8db777c742beeb648ace0fcf782717963a9e67",
+      "after_sha256_normalized_utf8_lf": "b2514d11e823114ab10db9951f8db777c742beeb648ace0fcf782717963a9e67"
+    }
+  ],
+  "meaning": "Evidencia de incorporacao documental local; nao declara commit final, publicacao, reload, teste ou aprovacao de gameplay."
+}

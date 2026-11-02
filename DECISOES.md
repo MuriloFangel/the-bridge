@@ -35,3 +35,13 @@ Esta decisão torna obrigatória para todas as votações a conclusão antecipad
 - Motivo explicitado pelo administrador: impedir que pedidos de pausa sejam usados para parar o tempo enquanto o combate continua, especialmente em uma partida empatada.
 
 Esta decisão reforça a regra já presente nas seções de relógio e pausa do README. A publicação deste texto não altera o Core, não executa reload e não aprova testes.
+
+<!-- BEGIN BRIDGE DOC TB-20261102T064922Z-06ED614E -->
+### Entregas — decisão do administrador em 02/11/2026
+
+REQUISITO: um script alterado = somente o .sk completo no artefato. Vários scripts = um único ZIP contendo somente os .sk. Não anexar manifesto, documentação, relatório ou diff. Correções curtas podem ser entregues em bloco pronto de PowerShell, com hash da base, backup fora da árvore carregável e sem reload/restart automático; não pedir edição manual de trechos.
+
+Manifestos/registros/propostas documentais vão diretamente para ai-deliveries após a validação combinada, com as confirmações exigidas. Impedimentos são declarados, sem gerar anexos documentais automaticamente. Esta decisão posterior prevalece sobre instruções anteriores de ZIP opcional ou anexar JSON.
+
+Testes de gameplay ficam para o administrador ao final dos fechamentos; carregamento não é gameplay validado. Flechas atravessarem aliados continuam pendentes. A edição da fonte canônica PROMPT-NOVO-CHAT.md e sua reprodução no README ainda está pendente do fluxo de gestão; este registro não afirma alteração desses arquivos.
+<!-- END BRIDGE DOC TB-20261102T064922Z-06ED614E -->
