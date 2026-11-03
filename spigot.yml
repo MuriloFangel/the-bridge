@@ -8,33 +8,6 @@
 # IRC: #paperspigot @ irc.spi.gt ( http://irc.spi.gt/iris/?channels=PaperSpigot )
 
 config-version: 9
-data-value-allowed-items: []
-settings:
-  baby-zombie-movement-speed: 0.5
-  limit-player-interactions: true
-  debug: false
-  user-cache-size: 500
-  player-shuffle: 0
-  timeout-time: 60
-  restart-on-crash: true
-  restart-script: ./start.sh
-  sample-count: 12
-  bungeecord: false
-  int-cache-limit: 1024
-  netty-threads: 8
-  attribute:
-    maxHealth:
-      max: 2048.0
-    movementSpeed:
-      max: 2048.0
-    attackDamage:
-      max: 2048.0
-  late-bind: false
-  save-user-cache-on-stop-only: true
-  filter-creative-items: true
-  moved-wrongly-threshold: 0.0625
-  moved-too-quickly-threshold: 100.0
-warnWhenSettingExcessiveVelocity: false
 effect-modifiers:
   strength: 1.3
   weakness: -0.5
@@ -42,18 +15,38 @@ stackable-buckets:
   lava: false
   water: false
   milk: false
+settings:
+  baby-zombie-movement-speed: 0.5
+  limit-player-interactions: true
+  debug: false
+  save-user-cache-on-stop-only: true
+  netty-threads: 8
+  timeout-time: 60
+  restart-on-crash: true
+  restart-script: ./start.sh
+  player-shuffle: 0
+  int-cache-limit: 1024
+  late-bind: false
+  bungeecord: false
+  sample-count: 12
+  attribute:
+    maxHealth:
+      max: 2048.0
+    movementSpeed:
+      max: 2048.0
+    attackDamage:
+      max: 2048.0
+  user-cache-size: 500
+  moved-wrongly-threshold: 0.0625
+  filter-creative-items: true
+  moved-too-quickly-threshold: 100.0
+warnWhenSettingExcessiveVelocity: false
+data-value-allowed-items: []
 world-settings:
   default:
     verbose: false
-    fix-cannons: false
-    disable-thunder: true
-    tick-next-tick-list-cap: 5000
-    tick-next-tick-list-cap-ignores-redstone: true
-    water-over-lava-flow-speed: 5
-    tnt-entity-height-nerf: 0
-    disable-explosion-knockback: false
-    all-chunks-are-slime-chunks: false
-    allow-undead-horse-leashing: false
+    portal-search-radius: 64
+    disable-ice-and-snow: true
     generator-settings:
       canyon: false
       caves: false
@@ -65,58 +58,65 @@ world-settings:
       temple: false
       village: false
       flat-bedrock: true
-    keep-spawn-loaded: false
-    remove-invalid-mob-spawner-tile-entities: true
-    falling-blocks-collide-with-signs: false
-    disable-mood-sounds: true
-    game-mechanics:
-      disable-end-credits: true
-      boats-drop-boats: false
-      disable-player-crits: false
-      disable-chest-cat-detection: true
-    container-update-tick-rate: 2
-    falling-block-height-nerf: 0
-    max-growth-height:
-      cactus: 3
-      reeds: 3
-    optimize-explosions: true
-    nether-ceiling-void-damage: false
-    player-blocking-damage-multiplier: 0.5
-    mob-spawner-tick-rate: 2
-    tnt-explosion-volume: 4.0
-    allow-block-location-tab-completion: true
-    cache-chunk-maps: true
-    use-async-lighting: true
-    squid-spawn-height:
-      minimum: 45.0
-      maximum: 63.0
-    lava-flow-speed:
-      normal: 30
-      nether: 10
     use-hopper-check: false
-    load-chunks:
-      enderpearls: false
-      tnt-entities: false
-      falling-blocks: false
+    fishing-time-range:
+      MinimumTicks: 100
+      MaximumTicks: 900
     remove-unloaded:
       enderpearls: true
       tnt-entities: true
       falling-blocks: true
+    game-mechanics:
+      boats-drop-boats: false
+      disable-player-crits: false
+      disable-chest-cat-detection: true
+      disable-end-credits: true
     despawn-ranges:
       soft: 28
       hard: 96
-    fishing-time-range:
-      MinimumTicks: 100
-      MaximumTicks: 900
+    squid-spawn-height:
+      minimum: 45.0
+      maximum: 63.0
     fast-drain:
       lava: true
       water: true
+    load-chunks:
+      enderpearls: false
+      tnt-entities: false
+      falling-blocks: false
     player-exhaustion:
       block-break: 0.02500000037252903
       swimming: 0.014999999664723873
-    disable-ice-and-snow: true
-    portal-search-radius: 64
+    lava-flow-speed:
+      normal: 30
+      nether: 10
+    fix-cannons: false
+    allow-block-location-tab-completion: true
+    water-over-lava-flow-speed: 5
+    allow-undead-horse-leashing: false
+    tnt-entity-height-nerf: 0
+    disable-explosion-knockback: false
+    all-chunks-are-slime-chunks: false
+    cache-chunk-maps: true
+    use-async-lighting: true
+    keep-spawn-loaded: false
+    remove-invalid-mob-spawner-tile-entities: true
+    container-update-tick-rate: 2
+    disable-mood-sounds: true
+    falling-blocks-collide-with-signs: false
+    nether-ceiling-void-damage: false
+    max-growth-height:
+      cactus: 3
+      reeds: 3
+    tnt-explosion-volume: 4.0
+    falling-block-height-nerf: 0
+    optimize-explosions: true
+    player-blocking-damage-multiplier: 0.5
+    mob-spawner-tick-rate: 2
     disable-teleportation-suffocation-check: true
+    tick-next-tick-list-cap: 5000
+    tick-next-tick-list-cap-ignores-redstone: true
+    disable-thunder: true
     enable-zombie-pigmen-portal-spawns: true
     wither-spawn-sound-radius: 0
     zombie-aggressive-towards-villager: true
@@ -190,29 +190,6 @@ world-settings:
       entity: 50
     chunks-per-tick: 650
     clear-tick-list: false
-commands:
-  replace-commands:
-  - setblock
-  - summon
-  - testforblock
-  - tellraw
-  spam-exclusions:
-  - /skill
-  log: true
-  tab-complete: 0
-  silent-commandblock-console: true
-messages:
-  restart: Server is restarting
-  whitelist: You are not whitelisted.
-  unknown-command: Unknown command.
-  server-full: The server is full.
-  outdated-client: Outdated client! Please use {0}
-  outdated-server: Outdated server! I'm still on {0}
-stats:
-  disable-saving: true
-  forced-stats:
-    achievement:
-      openInventory: 1
 timings:
   enabled: false
   verbose: false
@@ -222,3 +199,26 @@ timings:
   - settings.bungeecord-addresses
   history-interval: 300
   history-length: 3600
+commands:
+  tab-complete: 0
+  replace-commands:
+  - setblock
+  - summon
+  - testforblock
+  - tellraw
+  spam-exclusions:
+  - /skill
+  log: true
+  silent-commandblock-console: true
+messages:
+  whitelist: You are not whitelisted.
+  unknown-command: Unknown command.
+  server-full: The server is full.
+  outdated-client: Outdated client! Please use {0}
+  outdated-server: Outdated server! I'm still on {0}
+  restart: Server is restarting
+stats:
+  disable-saving: true
+  forced-stats:
+    achievement:
+      openInventory: 1
