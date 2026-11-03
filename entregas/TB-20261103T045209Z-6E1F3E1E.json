@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T045209Z-6E1F3E1E",
+  "status": "GERADA",
+  "created_at": "2026-11-03T04:52:09Z",
+  "base_commit": "3ecfc9af338151c865916dbfc5b4fe408d58b092",
+  "objective": "Party independente do matchmaking: vinculos, convites, lideranca compartilhada, publicidade, expulsao e revolucao/eleicao.",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "path": "plugins/Skript/scripts/Bridge-Party.sk",
+      "sha256_normalized_utf8_lf": "5ee208debe6a573e11302ca411b69e25a08041c673ace49025d08acf1d268bc6"
+    }
+  ],
+  "changes": [
+    "Novo modulo de party com 28 funcoes e comando /party.",
+    "UUID de grupo, convites e consultas/turnos para invalidar cliques e rotinas antigos.",
+    "Voto definitivo, eleitorado sem reinsercao apos desconexao, retirada de candidato e anulacao de votos.",
+    "Sucessao por antiguidade, ate tres lideres, acesso publico/privado e troca sem waits apos validacao.",
+    "Ajuda propria e extensao opcional de autocomplete pelo mecanismo existente."
+  ],
+  "must_preserve": [
+    "Todos os 17 scripts anteriores literalmente intactos.",
+    "Sem alteracao de filas, times, combate, pausa, retorno ou reset de partida.",
+    "Sem reload/restart automatico; sem escrita remota na main."
+  ],
+  "dependencies": [
+    "Skript 2.6.4-for-1.8; skript-reflect 2.2.3; Bukkit legado 1.8.8.",
+    "Bridge-Commands.sk opcional para autocomplete, blob eca72230c87a2bbd4e9d488a0cd927a57dec5eec.",
+    "Decisoes TB-20261103T044205Z-FB185E98 e complemento documental deste ID."
+  ],
+  "tests_performed": [
+    "Verificacao textual de 28 nomes unicos e resolucao de chamadas internas.",
+    "Verificacao de indentacao, aspas por linha, UTF-8/LF sem BOM e SHA-256 incluindo cabecalho.",
+    "Ausencia de escrita nos namespaces player/instance/return/queue e de alteracoes em scripts anteriores.",
+    "Modelo Python de eleicao/conclusao antecipada: 10912 estados, 1-5 candidatos, 0-3 votos por candidato, 0-3 votos restantes, primeiro/segundo turno; comparacao com todas distribuicoes restantes incluindo abstencao, sem resultados antecipados inseguros nem conclusoes definidas omitidas no dominio verificado. Modelo nao executa Skript."
+  ],
+  "tests_pending": [
+    "Parser e runtime no ambiente legado; nenhum reload realizado.",
+    "Criar/listar/convidar/aceitar, convites simultaneos/expirados e troca atomica.",
+    "Saida, expulsao online/offline, dissolucao e todos offline.",
+    "Transferencia/adicao de lider e sucessao de 30s, inclusive durante voto.",
+    "Publicidade, privatizacao e cliques obsoletos.",
+    "Expulsao/revolucao/eleicao/segundo turno, empate e limite tres por antiguidade.",
+    "Retirada de eleitor/candidato, voto anulado e ausencia de candidatos/votos.",
+    "Reinicio/reload e shutdown reais: preservacao de vinculos sem falso abandono coletivo.",
+    "Nao interferencia no 1v1; party nao puxa grupo para fila.",
+    "Conflito eventual de /party com outro plugin nao foi testado."
+  ],
+  "relates_to": [
+    "TB-20261103T044205Z-FB185E98"
+  ]
+}

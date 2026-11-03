@@ -1,0 +1,15 @@
+{
+  "schema_version": "bridge-docs-v1",
+  "delivery_id": "TB-20261103T045209Z-6E1F3E1E",
+  "created_at": "2026-11-03T04:52:09Z",
+  "base_commit": "3ecfc9af338151c865916dbfc5b4fe408d58b092",
+  "requires": [],
+  "updates": [
+    {
+      "path": "DECISOES.md",
+      "base_sha256_normalized_utf8_lf": "a8624a426f5a99ae4540399808910cf76cf27ef7942db9c49a2c3f41bd24db45",
+      "content": "### 2026-11-03 — Complemento aprovado: políticas das consultas de party\n\nREQUISITO aprovado pelo administrador após TB-20261103T044205Z-FB185E98. Complementa as pendências daquele bloco; não declara implementação, carregamento ou teste.\n\n- Primeiro voto válido é definitivo. Solicitante não recebe SIM automático: precisa votar.\n- Quem desconecta perde elegibilidade e voto naquela consulta. Reconectar não o reinsere nela. Candidato desconectado é retirado; votos nele são anulados com aviso. Se não restar candidato, cancelar a eleição sem substituir a liderança pelo resultado eleitoral.\n- Eleição encerrada sem votos válidos é cancelada; liderança anterior permanece, sujeita às regras normais de ausência. Não eleger com zero votos por antiguidade.\n- Sucessão cujo prazo vence durante consulta fica pendente até seu encerramento, revalidando liderança e presença. Se todos ficarem offline, dissolver imediatamente.\n- Durante consulta ficam disponíveis ajuda, consulta da lista e voto. Ações de alteração da composição, liderança e acesso ficam bloqueadas, incluindo expulsão, transferência/adição de líder, nova proposta, convite/aceite/troca/entrada pública, publicidade, saída voluntária e dissolução por comando. Desconexão real não é bloqueável.\n\nAinda não constitui evidência de aplicação de código. Votações da party não compartilham estado nem executam resultados das votações de partida. Implementação, carregamento e testes permanecem estados separados.\n",
+      "content_sha256_normalized_utf8_lf": "a5da001f03898e127851541a5974704078c096aca8b8be4d4fc3c0ceeb75d585"
+    }
+  ]
+}
