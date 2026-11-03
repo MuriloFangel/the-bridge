@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T034700Z-BDEF6180",
+  "status": "GERADA",
+  "created_at": "2026-11-03T03:47:00.6073308Z",
+  "base_commit": "edaf906bd4395b78f1e2e0c152b3446dff4a2941",
+  "objective": "Mostrar logs locais separados de servidor e bots sem reiniciar componentes",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "path": "painel.ps1",
+      "sha256_normalized_utf8_lf": "b795e2b573d2797023683028009cfe3c6037c2eb397efb14bb2321756809c5f4"
+    },
+    {
+      "path": "Bridge-Consoles.ps1",
+      "sha256_normalized_utf8_lf": "faec987f31cb1fcaaeb7b928deec92511d8150c0bd56a706d3e2b9e39571b0b1"
+    },
+    {
+      "path": "CONSOLES-LOCAIS.md",
+      "sha256_normalized_utf8_lf": "87c706b0614d7b0f2c67fa9e58e8e023e8dd64ba4461932e3525d0e5027b8419"
+    }
+  ],
+  "changes": [
+    "Visualizador somente de leitura com duas janelas e consulta assincrona",
+    "Ver consoles e abertura junto do painel em proximas aberturas"
+  ],
+  "must_preserve": [
+    "Modulo de controle e prontidao",
+    "Estado salvo, Java, bots, CMPack, ponte, configuracoes e gameplay"
+  ],
+  "dependencies": [
+    "painel.ps1 usa Bridge-Consoles.ps1 para visualizacao",
+    "Visualizador usa Bridge-Environment.ps1 apenas para get_server_log e get_status"
+  ],
+  "tests_performed": [
+    "Sintaxe dos dois scripts",
+    "Construir duas janelas sem rede, renderizar logs e deduplicar bots",
+    "Construir painel com seis botoes sem iniciar componentes"
+  ],
+  "tests_pending": [
+    "Conferir duas janelas visiveis e logs reais na sessao interativa",
+    "Confirmacao visual pelo administrador",
+    "Prontidao e encerramento continuam pendentes"
+  ],
+  "relates_to": [
+    "TB-20261103T032637Z-2F21AE71"
+  ]
+}

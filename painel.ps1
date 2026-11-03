@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T020722Z-E7DF76B7
-# Bridge-Base-Commit: 7a523837c6c38f48fd61662fa5dfda09adc0d58b
+# Bridge-Delivery-ID: TB-20261103T034700Z-BDEF6180
+# Bridge-Base-Commit: edaf906bd4395b78f1e2e0c152b3446dff4a2941
 #requires -Version 7.2
 [CmdletBinding()]
 param([string]$ProjectPath='F:\srv\vibecoding',[switch]$AutoStart,[switch]$SelfTest,[switch]$ReplaceLegacyPanel,[string]$InspectionReceipt='')
@@ -32,11 +32,11 @@ $title=[Windows.Forms.Label]::new();$title.Text='The Bridge | inicio e encerrame
 $count=[Windows.Forms.Label]::new();$count.SetBounds(20,48,600,28);$form.Controls.Add($count)
 $log=[Windows.Forms.TextBox]::new();$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(20,175,600,250);$form.Controls.Add($log)
 $existing=[Windows.Forms.CheckBox]::new();$existing.Text='Incluir servidor preexistente no encerramento (stop normal)';$existing.SetBounds(20,140,600,28);$form.Controls.Add($existing)
-$buttons=@{};$labels=@{Start='Iniciar ambiente';Cancel='Cancelar nesta sessao';Stop='Encerrar ambiente';Status='Atualizar estado';Recover='Recuperar ponte'};$i=0
-foreach($name in @('Start','Cancel','Stop','Status','Recover')){$b=[Windows.Forms.Button]::new();$b.Text=$labels[$name];$b.Tag=$name;$b.SetBounds((20+($i%3)*200),(80+[math]::Floor($i/3)*30),190,28);$form.Controls.Add($b);$buttons[$name]=$b;$i++}
+$buttons=@{};$labels=@{Start='Iniciar ambiente';Cancel='Cancelar nesta sessao';Stop='Encerrar ambiente';Status='Atualizar estado';Recover='Recuperar ponte';Consoles='Ver consoles'};$i=0
+foreach($name in @('Start','Cancel','Stop','Status','Recover','Consoles')){$b=[Windows.Forms.Button]::new();$b.Text=$labels[$name];$b.Tag=$name;$b.SetBounds((20+($i%3)*200),(80+[math]::Floor($i/3)*30),190,28);$form.Controls.Add($b);$buttons[$name]=$b;$i++}
 $script:pending=$null;$script:cancelled=(-not $AutoStart);$script:clock=[Diagnostics.Stopwatch]::new();$script:closeAfter=$false;$script:allowClose=$false
 function Start-PanelOperation([string]$Action){
- if($script:pending){return};$script:cancelled=$true;$buttons.Cancel.Enabled=$false;$include=$existing.Checked
+ if($script:pending){return};if($Action -eq 'Start'){Show-BridgeConsoles};$script:cancelled=$true;$buttons.Cancel.Enabled=$false;$include=$existing.Checked
  $runspace=[runspacefactory]::CreateRunspace();$runspace.ApartmentState='STA';$runspace.ThreadOptions='ReuseThread';$runspace.Open();$ps=[PowerShell]::Create();$ps.Runspace=$runspace
  $work={param($module,$root,$action,$include) . $module;$state=Read-BridgePanelState $root
  try{switch($action){'Start'{$r=Start-BridgeEnvironment -Root $root -State $state};'Stop'{$r=Stop-BridgeEnvironment -Root $root -State $state -IncludeExistingServer $include};'Status'{$s=Invoke-BridgeLocalTool 'get_status' @{};$r=@{messages=@('Servidor na porta: '+$s.server_listening,'Java da ponte: '+$s.java_owned,'Bots da ponte: '+$s.bots_owned)}};'Recover'{$r=Invoke-BridgePanelRecovery};default{throw 'Acao invalida'}};return $r}catch{return @{messages=@('Operacao interrompida: '+$_.Exception.Message);failed=$true}}finally{Save-BridgePanelState $root $state}}
@@ -72,6 +72,12 @@ $form.Add_Shown({
   }
  }
 })
-if($SelfTest){if($buttons.Count -ne 5 -or $timer.Interval -ne 200){throw 'Estrutura da GUI invalida'};$timer.Dispose();$form.Dispose();[pscustomobject]@{gui_constructed=$true;buttons=5;components_started=$false} | ConvertTo-Json -Compress;return}
+function Show-BridgeConsoles {
+ if($SelfTest){return}
+ try{$viewer=Join-Path $PSScriptRoot 'Bridge-Consoles.ps1';if(-not(Test-Path -LiteralPath $viewer -PathType Leaf)){throw 'Visualizador ausente'};$null=Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -ArgumentList ('-NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$viewer+'"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden}catch{$log.AppendText("Nao foi possivel abrir os consoles: "+$_.Exception.Message+"`r`n")}
+}
+$buttons.Consoles.Add_Click({Show-BridgeConsoles})
+$form.Add_Shown({Show-BridgeConsoles})
+if($SelfTest){if($buttons.Count -ne 6 -or $timer.Interval -ne 200){throw 'Estrutura da GUI invalida'};$timer.Dispose();$form.Dispose();[pscustomobject]@{gui_constructed=$true;buttons=6;components_started=$false} | ConvertTo-Json -Compress;return}
 $mutex=[Threading.Mutex]::new($false,'Local\TheBridgeEnvironmentPanel');$owned=$false
 try{try{$owned=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$owned=$true};if(-not $owned){return};[void]$form.ShowDialog()}finally{$timer.Dispose();$form.Dispose();if($owned){$mutex.ReleaseMutex()};$mutex.Dispose()}
