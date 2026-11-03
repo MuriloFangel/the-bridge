@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T034939Z-09D8CCE7
-# Bridge-Base-Commit: 9a21e7ca1ecd99dde022197c3e6e125c214a85b7
+# Bridge-Delivery-ID: TB-20261103T035753Z-349DB512
+# Bridge-Base-Commit: c0617a89f050d534d37dcf31ac77c10fa95bb441
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -860,7 +860,12 @@ function bridge_configTitle(prop: text) :: text:
         return "Limite Lateral"
     return ""
 
-function bridge_configValueValid(prop: text, value: integer) :: boolean:
+function bridge_configValueValid(prop: text, value: number) :: boolean:
+    if {_value} is not set:
+        return false
+    set {_wholeValue} to floor({_value})
+    if {_wholeValue} is not {_value}:
+        return false
     set {_valid} to false
     if {_prop} is "gols":
         if {_value} > 0:
@@ -883,7 +888,7 @@ function bridge_configValueValid(prop: text, value: integer) :: boolean:
             set {_valid} to true
     return {_valid}
 
-function bridge_configApply(actor: object, arena: text, prop: text, value: integer) :: boolean:
+function bridge_configApply(actor: object, arena: text, prop: text, value: number) :: boolean:
     if Bukkit.isPrimaryThread() is false:
         return false
     if {_actor}.hasPermission("bridge.admin") is false:
@@ -1074,8 +1079,8 @@ function bridge_legacyMenu(inv: object) :: boolean:
 on load:
     wait 1 tick
     # Verificacao pura: nao grava configuracao nem inicia partidas.
-    set {_probeProps::*} to "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "y-void", "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void" and "inexistente"
-    set {_probeValues::*} to 5, 900, 0, 20, 255, 83, -1, 0, 0, -1, -1, 256, 256 and 1
+    set {_probeProps::*} to "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "y-void", "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "inexistente", "gols" and "y-void"
+    set {_probeValues::*} to 5, 900, 0, 20, 255, 83, -1, 0, 0, -1, -1, 256, 256, 1, 5.5 and 83.5
     set {_probeFailures} to 0
     loop {_probeProps::*}:
         set {_index} to loop-index parsed as integer
@@ -1086,7 +1091,7 @@ on load:
         if {_probeResult} is not {_expected}:
             add 1 to {_probeFailures}
             send "[Bridge] VALIDADOR FALHOU: propriedade=%loop-value%, valor=%{_probeValues::%{_index}%}%, esperado=%{_expected}%, recebido=%{_probeResult}%." to console
-    send "[Bridge] Validador de arena: 14 casos puros; falhas=%{_probeFailures}%. Isto nao certifica cliques ou persistencia." to console
+    send "[Bridge] Validador de arena: 16 casos puros; falhas=%{_probeFailures}%. Isto nao certifica cliques ou persistencia." to console
     loop all players:
         set {_u} to loop-player's uuid
         set {_inv} to loop-player.getOpenInventory().getTopInventory()
