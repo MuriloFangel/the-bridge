@@ -1,5 +1,5 @@
-<!-- Bridge-Delivery-ID: TB-20261101T042032Z-817D9FCD -->
-<!-- Bridge-Base-Commit: c8c885abe4700d57c6dbd846699eb59b6f078840 -->
+<!-- Bridge-Delivery-ID: TB-20261103T030512Z-F74D9D0D -->
+<!-- Bridge-Base-Commit: 08ee3a178805e31dc213773455e0dab3fa3cfb53 -->
 # Rastreabilidade de entregas — protocolo v1
 
 ## Referências e separação
@@ -7,11 +7,15 @@
 - main: conteúdo realmente salvo no PC e enviado pelo sincronizador.
 - ai-deliveries: registros de arquivos GERADOS. Não é código instalado nem branch de desenvolvimento.
 - ai-deliveries/entregas/<ID>.json: registro imutável de proposta. Nunca alterar o mesmo ID para corrigir uma entrega.
-- main/RASTREABILIDADE/recebidas/<ID>.json: cópia opcional salva pelo administrador junto da entrega; fallback quando a IA não puder gravar o ledger.
+- main/RASTREABILIDADE/recebidas/<ID>.json: caminho interno de recebimento/compatibilidade; nao exigir transporte manual de JSON pelo administrador. Falha remota e declarada sem criar anexos documentais automaticamente.
 - main/RASTREABILIDADE/observacoes/<fingerprint>-<ocorrencia>.json: retrato produzido LOCALMENTE, antes de um commit, sem inventar validação.
 - .git/bridge-trace/: cache e recibo local de push, não versionados.
 
 O GitHub não consulta o PC sozinho. A IA não monitora entre mensagens. O sincronizador faz a observação quando está rodando. O acesso de outra IA ao repositório precisa existir; instrução não concede permissão.
+
+## Forma de entrega — decisao de 02/11/2026
+
+Um script alterado: somente o .sk completo no artefato. Varios scripts: um unico ZIP contendo somente os .sk. Nao anexar manifestos, documentacao, relatorios ou diffs. Correcoes curtas: bloco pronto de PowerShell, com checagem da base e backup fora da arvore carregavel, sem edicao manual de trechos e sem reload/restart automatico. Manifestos, registros, diffs e propostas documentais seguem diretamente para ai-deliveries, respeitando confirmacoes e a validacao combinada. Indisponibilidade remota deve ser declarada, sem gerar anexo documental automaticamente; excecoes dependem de nova autorizacao.
 
 ## IDs e arquivos
 
@@ -31,7 +35,7 @@ Campos obrigatórios para o verificador: schema_version=1; delivery_id; status="
 
 Campos descritivos que a IA deve preencher: changes, must_preserve, dependencies, tests_performed, tests_pending, relates_to. Paths são relativos ao repositório, com /, sem .., sem drive e sem .git. Não incluir o próprio manifesto na lista a hashear.
 
-Registro GERADA é uma alegação da origem, não prova de que usuário recebeu ou aplicou. Não inserir applied_commit fictício. Se registro remoto falhou, entregar JSON e declarar pendência. A escrita remota exige ferramenta e confirmação; o prompt não contorna essa exigência.
+Registro GERADA é uma alegação da origem, não prova de que usuário recebeu ou aplicou. Não inserir applied_commit fictício. Se registro remoto falhou, declarar REGISTRO REMOTO PENDENTE, sem anexo JSON automatico ou alegacao de publicacao. A escrita remota exige ferramenta e confirmação; o prompt não contorna essa exigência.
 
 ## Resultados de observação
 
@@ -42,7 +46,7 @@ Registro GERADA é uma alegação da origem, não prova de que usuário recebeu 
 
 Correspondência é de conteúdo. Não significa reload, adoção consciente, ausência de bugs ou teste. JSON idêntico pode corresponder a múltiplas propostas; não inventar uma origem única. Manifesto não é assinatura criptográfica nem mecanismo de autorização.
 
-Arquivos sem registro permanecem sincronizáveis; o sistema registra a lacuna, sem falsificar metadados. Entregas parciais/divergentes são informadas; esta versão NÃO bloqueia automaticamente todo commit por isso. Para entrega de vários módulos, pare o sincronizador, salve todos e o manifesto e reinicie; quiet time não é transação de arquivos.
+Arquivos sem registro permanecem sincronizáveis; o sistema registra a lacuna, sem falsificar metadados. Entregas parciais/divergentes são informadas; esta versão NÃO bloqueia automaticamente todo commit por isso. Para varios modulos, coordenar parada/retomada do sincronizador somente quando necessaria e autorizada; salvar somente os .sk e usar os registros do ledger, sem manifesto manual. Quiet time nao e transacao de arquivos.
 
 ## Associação ao commit, sem autorreferência
 
