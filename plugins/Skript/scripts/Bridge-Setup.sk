@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T032724Z-863E7317
-# Bridge-Base-Commit: 1eba74b848bc0f808b713f96d64631c5c920aca2
+# Bridge-Delivery-ID: TB-20261103T034939Z-09D8CCE7
+# Bridge-Base-Commit: 9a21e7ca1ecd99dde022197c3e6e125c214a85b7
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -861,21 +861,27 @@ function bridge_configTitle(prop: text) :: text:
     return ""
 
 function bridge_configValueValid(prop: text, value: integer) :: boolean:
-    if {_prop} is "gols" or "tempo":
+    set {_valid} to false
+    if {_prop} is "gols":
         if {_value} > 0:
-            return true
-    else if {_prop} is "limite-ponte" or "limite-lateral":
+            set {_valid} to true
+    if {_prop} is "tempo":
+        if {_value} > 0:
+            set {_valid} to true
+    if {_prop} is "limite-ponte":
         if {_value} >= 0:
-            return true
-    else if {_prop} is "y-max":
+            set {_valid} to true
+    if {_prop} is "limite-lateral":
+        if {_value} >= 0:
+            set {_valid} to true
+    if {_prop} is "y-max":
         if {_value} >= 0:
             if {_value} <= 255:
-                return true
-    else if {_prop} is "y-void":
-        # Limiar de void pode ser negativo; não é uma altura de construção.
+                set {_valid} to true
+    if {_prop} is "y-void":
         if {_value} <= 255:
-            return true
-    return false
+            set {_valid} to true
+    return {_valid}
 
 function bridge_configApply(actor: object, arena: text, prop: text, value: integer) :: boolean:
     if Bukkit.isPrimaryThread() is false:
@@ -892,7 +898,9 @@ function bridge_configApply(actor: object, arena: text, prop: text, value: integ
         set {_msg} to colored "%{bridge::config::erro}% &cAguarde o cadastro desta arena terminar antes de editar valores."
         {_actor}.sendMessage({_msg})
         return false
-    if bridge_configValueValid({_prop}, {_value}) is not true:
+    set {_validated} to bridge_configValueValid({_prop}, {_value})
+    if {_validated} is not true:
+        send "[Bridge] Edicao rejeitada: propriedade=[%{_prop}%], valor=[%{_value}%], validacao=[%{_validated}%]." to console
         set {_msg} to colored "%{bridge::config::erro}% &cPropriedade ou valor inválido. Gols/tempo positivos; limites não negativos; Y-Max entre 0 e 255; Y-Void até 255."
         {_actor}.sendMessage({_msg})
         return false
@@ -1065,6 +1073,20 @@ function bridge_legacyMenu(inv: object) :: boolean:
 
 on load:
     wait 1 tick
+    # Verificacao pura: nao grava configuracao nem inicia partidas.
+    set {_probeProps::*} to "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "y-void", "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void" and "inexistente"
+    set {_probeValues::*} to 5, 900, 0, 20, 255, 83, -1, 0, 0, -1, -1, 256, 256 and 1
+    set {_probeFailures} to 0
+    loop {_probeProps::*}:
+        set {_index} to loop-index parsed as integer
+        set {_probeResult} to bridge_configValueValid(loop-value, {_probeValues::%{_index}%})
+        set {_expected} to false
+        if {_index} <= 7:
+            set {_expected} to true
+        if {_probeResult} is not {_expected}:
+            add 1 to {_probeFailures}
+            send "[Bridge] VALIDADOR FALHOU: propriedade=%loop-value%, valor=%{_probeValues::%{_index}%}%, esperado=%{_expected}%, recebido=%{_probeResult}%." to console
+    send "[Bridge] Validador de arena: 14 casos puros; falhas=%{_probeFailures}%. Isto nao certifica cliques ou persistencia." to console
     loop all players:
         set {_u} to loop-player's uuid
         set {_inv} to loop-player.getOpenInventory().getTopInventory()
