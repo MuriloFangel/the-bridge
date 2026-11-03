@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T152122Z-2F392312",
+  "status": "GERADA",
+  "created_at": "2026-11-03T15:21:22.7626045Z",
+  "base_commit": "366ca28c8eddc28138ccc3cea5513a67f78995a0",
+  "objective": "Consoles locais com envio confirmado e historico persistente paginado",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "sha256_normalized_utf8_lf": "779ae51103411bc04198b76cf295434deb9eda1c9abb81262a5f4bb2a70ac178",
+      "path": "Bridge-Consoles.ps1"
+    },
+    {
+      "sha256_normalized_utf8_lf": "3dada801a64dbf910b746b29a680eb6e5269cf4b537805eb2fd55a959145ae50",
+      "path": "Bridge-ConsoleClient.ps1"
+    },
+    {
+      "sha256_normalized_utf8_lf": "b5e2157b610d412047e7b4e55417f730beac1024e78b3cbbd5a8eb7b4efb12b9",
+      "path": "CONSOLES-LOCAIS.md"
+    }
+  ],
+  "changes": [
+    "Interface de comandos e arquivos por execucao",
+    "Cliente local autenticado sem ampliar comandos da API remota"
+  ],
+  "must_preserve": [
+    "Configuracao Java, JAR, memoria e flags",
+    "Modulo de controle e prontidao",
+    "Dados e scripts do jogo",
+    "Credenciais privadas fora do repositorio"
+  ],
+  "dependencies": [
+    "Ponte com active_sha256 f7e2f5ecda28aa897cb2ba685e28cc591d2fd7b0188991abcc4ecd135b3d6e04 Bridge-Consoles.ps1 e Bridge-ConsoleClient.ps1 juntos"
+  ],
+  "tests_performed": [
+    "12 testes de interface em preparacao",
+    "Autenticacao e envio unico em pipe com transporte ficticio",
+    "Inicializacao da ponte candidata inteira com configuracao ficticia"
+  ],
+  "tests_pending": [
+    "Ativacao e saude reais",
+    "Confirmacao visual e testes reais delimitados",
+    "Busca global de historico",
+    "Proximo login e prontidao"
+  ],
+  "relates_to": [
+    "TB-20261103T034700Z-BDEF6180"
+  ]
+}
