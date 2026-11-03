@@ -1,8 +1,8 @@
-# Bridge-Delivery-ID: TB-20261101T062635Z-2B1B2E53
-# Bridge-Base-Commit: 6d82b9c79fd77fead21a096cae72eda2754e80ea
+# Bridge-Delivery-ID: TB-20261103T152150Z-29C38DD3
+# Bridge-Base-Commit: 2f1cd8df5f9979c7c2274bec9184804ad49f221a
 # ================================================================
-# THE BRIDGE - CAGES FÍSICAS / EXTRAÇÃO SEM MUDANÇA DE GAMEPLAY
-# Mantém geometria, cor, snapshots e restauração. Sem eventos ou timers próprios.
+# THE BRIDGE - CAGES FÍSICAS / DIMENSÕES POR TIME E EIXO
+# Preserva cor, snapshots e restauração. Sem eventos ou timers próprios.
 # ================================================================
 
 import:
@@ -18,18 +18,58 @@ function bridge_buildCage(center: location, colorData: integer, inst: text):
     set {_cz} to floor(z-coordinate of {_center})
     set {_minY} to {_cy} - 1
     set {_maxY} to {_cy} + 3
-    set {_minX} to {_cx} - 2
-    set {_maxX} to {_cx} + 2
-    set {_minZ} to {_cz} - 2
-    set {_maxZ} to {_cz} + 2
+    # Identifica o lado pela referência exata usada por Rounds/Voting.
+    # Não usa cor como identidade do time nem modifica os chamadores existentes.
+    set {_arena} to {bridge::instance::%{_inst}%::arena}
+    set {_team} to 0
+    loop 2 times:
+        set {_t} to loop-value
+        delete {_origin}
+        set {_origin} to {bridge::arena::%{_arena}%::team::%{_t}%::cage}
+        if {_origin} is not set:
+            set {_spawn} to {bridge::arena::%{_arena}%::team::%{_t}%::sponge}
+            if {_spawn} is set:
+                set {_origin} to location 7 blocks above {_spawn}
+        if {_origin} is set:
+            set {_anchor} to bridge_getLoc({_origin}, {_inst})
+            if world of {_anchor} is world of {_center}:
+                if distance between {_anchor} and {_center} < 0.01:
+                    if {_team} is not 0:
+                        send "[Bridge] ERRO: referências de cages sobrepostas em %{_inst}%." to console
+                        stop
+                    set {_team} to {_t}
+    if {_team} is 0:
+        send "[Bridge] ERRO: lado da cage não identificado em %{_inst}%." to console
+        stop
+    set {_count} to size of {bridge::instance::%{_inst}%::team::%{_team}%::players::*}
+    if {_count} < 1:
+        set {_count} to 1
+    set {_width} to (ceil({_count} / 2) * 2) + 1
+    set {_lateralRadius} to ({_width} + 1) / 2
+    set {_rx} to 2
+    set {_rz} to 2
+    if {bridge::arena::%{_arena}%::axis} is "X":
+        set {_rz} to {_lateralRadius}
+    else if {bridge::arena::%{_arena}%::axis} is "Z":
+        set {_rx} to {_lateralRadius}
+    else:
+        send "[Bridge] ERRO: eixo inválido para cage em %{_inst}%." to console
+        stop
+    set {_minX} to {_cx} - {_rx}
+    set {_maxX} to {_cx} + {_rx}
+    set {_minZ} to {_cz} - {_rz}
+    set {_maxZ} to {_cz} + {_rz}
+    set {_sizeX} to ({_rx} * 2) + 1
+    set {_sizeZ} to ({_rz} * 2) + 1
+    set {_expected} to ({_sizeX} * 5 * {_sizeZ}) - (({_sizeX} - 2) * 3 * ({_sizeZ} - 2))
     set {_checked} to 0
     set {_failed} to 0
 
     loop 5 times:
         set {_y} to {_minY} + loop-value - 1
-        loop 5 times:
+        loop {_sizeX} times:
             set {_x} to {_minX} + loop-value-2 - 1
-            loop 5 times:
+            loop {_sizeZ} times:
                 set {_z} to {_minZ} + loop-value-3 - 1
                 set {_outer} to false
                 if {_y} is {_minY}:
@@ -58,8 +98,8 @@ function bridge_buildCage(center: location, colorData: integer, inst: text):
                         add 1 to {_failed}
                     else if {_b}.getData() is not {_colorData}:
                         add 1 to {_failed}
-    if {_checked} is not 98:
-        send "[Bridge] ERRO: cage %{_inst}% em %{_center}%: %{_checked}% posições; esperado 98." to console
+    if {_checked} is not {_expected}:
+        send "[Bridge] ERRO: cage %{_inst}% em %{_center}%: %{_checked}% posições; esperado %{_expected}%." to console
     if {_failed} > 0:
         send "[Bridge] ERRO: cage %{_inst}% em %{_center}%: %{_failed}% blocos de vidro falharam. Verifique teto, piso e paredes." to console
         bridge_chatInstance({_inst}, "&cFalha na montagem da cage. Avise a administração; não tente sair pelo vão.")

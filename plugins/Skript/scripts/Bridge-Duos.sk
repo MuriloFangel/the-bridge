@@ -1,0 +1,256 @@
+# Bridge-Delivery-ID: TB-20261103T152150Z-29C38DD3
+# Bridge-Base-Commit: 2f1cd8df5f9979c7c2274bec9184804ad49f221a
+# THE BRIDGE - 2v2 DE SOLOS / PREPARAÇÃO DE SESSÃO POR LISTAS
+# Não integra parties; /jogar continua no caminho 1v1 do Core.
+# /l e quit invalidam a entrada pelo estado/ticket; não reutilizar espera antiga.
+
+import:
+    java.util.UUID as BridgeDuosUUID
+    java.util.ArrayList as BridgeDuosList
+    java.util.Collections as BridgeDuosCollections
+    org.bukkit.Bukkit as BridgeDuosBukkit
+
+function bridge_duosPlayer(u: text) :: object:
+    set {_uuid} to try BridgeDuosUUID.fromString({_u})
+    if {_uuid} is set:
+        set {_p} to BridgeDuosBukkit.getPlayer({_uuid})
+        if {_p} is set:
+            if {_p}.isOnline() is true:
+                return {_p}
+    stop
+
+function bridge_duosWaiting(u: text, arena: text) :: boolean:
+    set {_p} to bridge_duosPlayer({_u})
+    if {_p} is not set:
+        return false
+    if {bridge::player::%{_u}%::state} is not "QUEUE":
+        return false
+    if {bridge::player::%{_u}%::queue_mode} is not "2v2":
+        return false
+    if {bridge::player::%{_u}%::queue_arena} is not {_arena}:
+        return false
+    set {_ticket} to {bridge::duos_queue::%{_arena}%::tickets::%{_u}%}
+    if {_ticket} is not set:
+        return false
+    if {bridge::player::%{_u}%::queue_ticket} is not {_ticket}:
+        return false
+    return true
+
+function bridge_duosForget(arena: text, u: text):
+    remove {_u} from {bridge::duos_queue::%{_arena}%::members::*}
+    delete {bridge::duos_queue::%{_arena}%::tickets::%{_u}%}
+
+function bridge_duosPrune(arena: text):
+    set {_members::*} to {bridge::duos_queue::%{_arena}%::members::*}
+    loop {_members::*}:
+        if bridge_duosWaiting(loop-value, {_arena}) is not true:
+            bridge_duosForget({_arena}, loop-value)
+
+# Contrato interno: ArrayLists Bukkit Player, sem waits e sem iniciar a rodada.
+# Retorna instância comprometida ou texto vazio, sem cobrar abandono em falha.
+function bridge_prepareTeamLists(side1: object, side2: object, arena: text) :: text:
+    if {bridge::config::lobby} is not set:
+        return ""
+    if {bridge::arenas::*} does not contain {_arena}:
+        return ""
+    if {-bridge::setup::%{_arena}%::active} is true:
+        return ""
+    if {_side1}.size() < 1:
+        return ""
+    if {_side2}.size() < 1:
+        return ""
+    # Fixa listas locais antes de reservar; nenhuma mutação externa dos argumentos.
+    loop 2 times:
+        set {_t} to loop-value
+        set {_side} to {_side1}
+        if {_t} is 2:
+            set {_side} to {_side2}
+        set {_iterator} to {_side}.iterator()
+        while {_iterator}.hasNext() is true:
+            set {_member} to {_iterator}.next()
+            if {_member} is not a player:
+                return ""
+            if {_member} is not online:
+                return ""
+            set {_u} to {_member}'s uuid
+            if {_seen::%{_u}%} is true:
+                return ""
+            set {_seen::%{_u}%} to true
+            if bridge_duosWaiting({_u}, {_arena}) is not true:
+                return ""
+            add {_member} to {_teams::%{_t}%::*}
+    set {_inst} to bridge_findFreeInstance({_arena})
+    if {_inst} is "":
+        bridge_expandInstances({_arena}, 1)
+        set {_inst} to bridge_findFreeInstance({_arena})
+    if {_inst} is "":
+        return ""
+    if {bridge::instance::%{_inst}%::ready} is false:
+        return ""
+    if bridge_instanceBusy({_inst}) is true:
+        return ""
+    # Expansão atual é síncrona; revalida participantes antes do compromisso.
+    loop 2 times:
+        set {_t} to loop-value
+        loop {_teams::%{_t}%::*}:
+            set {_member} to loop-value-2
+            set {_u} to {_member}'s uuid
+            if bridge_duosWaiting({_u}, {_arena}) is not true:
+                return ""
+    remove {_inst} from {bridge::instances::free::*}
+    set {bridge::instance::%{_inst}%::state} to "STARTING"
+    if {bridge::core::active_instances::*} does not contain {_inst}:
+        add {_inst} to {bridge::core::active_instances::*}
+    if {bridge::core::session_counter} is not set:
+        set {bridge::core::session_counter} to 0
+    add 1 to {bridge::core::session_counter}
+    set {_sid} to {bridge::core::session_counter}
+    set {bridge::instance::%{_inst}%::match_id} to {_sid}
+    set {_time} to {bridge::arena::%{_arena}%::tempo}
+    if {_time} is not set:
+        set {_time} to 900
+    set {bridge::instance::%{_inst}%::time_remaining} to {_time}
+    delete {bridge::instance::%{_inst}%::closing_id}
+    delete {bridge::instance::%{_inst}%::frozen}
+    delete {bridge::instance::%{_inst}%::freeze_reason}
+    delete {bridge::instance::%{_inst}%::freeze_player_name}
+    delete {bridge::instance::%{_inst}%::freeze_team}
+    delete {bridge::instance::%{_inst}%::freeze_timer}
+    delete {bridge::instance::%{_inst}%::in_pause}
+    delete {bridge::instance::%{_inst}%::pause_resume_votes::*}
+    delete {bridge::instance::%{_inst}%::resume_kind}
+    delete {bridge::instance::%{_inst}%::resume_active}
+    delete {bridge::instance::%{_inst}%::golden_goal}
+    delete {bridge::instance::%{_inst}%::golden_goal_voted}
+    delete {bridge::instance::%{_inst}%::pauses::*}
+    delete {bridge::instance::%{_inst}%::voting::*}
+    delete {bridge::instance::%{_inst}%::members::*}
+    delete {bridge::instance::%{_inst}%::placed_blocks::*}
+    loop 2 times:
+        set {_t} to loop-value
+        delete {bridge::instance::%{_inst}%::team::%{_t}%::players::*}
+        set {bridge::instance::%{_inst}%::team::%{_t}%::score} to 0
+        set {bridge::instance::%{_inst}%::team::%{_t}%::initial_size} to size of {_teams::%{_t}%::*}
+        loop {_teams::%{_t}%::*}:
+            set {_member} to loop-value-2
+            set {_u} to {_member}'s uuid
+            bridge_registerDefinitiveAbandon({_member})
+            bridge_detachPrevious({_member})
+            bridge_duosForget({_arena}, {_u})
+            delete {bridge::player::%{_u}%::queue_arena}
+            delete {bridge::player::%{_u}%::queue_mode}
+            delete {bridge::player::%{_u}%::queue_ticket}
+            add {_member} to {bridge::instance::%{_inst}%::team::%{_t}%::players::*}
+            set {bridge::player::%{_u}%::instance} to {_inst}
+            set {bridge::player::%{_u}%::team} to {_t}
+            set {bridge::player::%{_u}%::state} to "INGAME"
+            set {bridge::player::%{_u}%::match_id} to {_sid}
+            set {bridge::player::%{_u}%::match_kills} to 0
+            set {bridge::player::%{_u}%::match_goals} to 0
+            set {bridge::instance::%{_inst}%::members::%{_u}%::match_id} to {_sid}
+            set {bridge::instance::%{_inst}%::members::%{_u}%::team} to {_t}
+            set {bridge::instance::%{_inst}%::members::%{_u}%::present} to true
+            set {bridge::instance::%{_inst}%::members::%{_u}%::match_kills} to 0
+            set {bridge::instance::%{_inst}%::members::%{_u}%::match_goals} to 0
+    bridge_chatInstance({_inst}, "&a2v2 encontrado! Dois integrantes por lado. &7Kits e cages serão preparados pela rodada.")
+    return {_inst}
+
+function bridge_duosTryStart(arena: text):
+    if {-bridge::duos_busy::%{_arena}%} is true:
+        stop
+    set {_retry} to {-bridge::duos_retry::%{_arena}%}
+    if {_retry} is set:
+        if (unix timestamp of now) < {_retry}:
+            stop
+    set {-bridge::duos_busy::%{_arena}%} to true
+    bridge_duosPrune({_arena})
+    set {_players} to new BridgeDuosList()
+    loop {bridge::duos_queue::%{_arena}%::members::*}:
+        set {_p} to bridge_duosPlayer(loop-value)
+        if {_p} is set:
+            {_players}.add({_p})
+        if {_players}.size() is 4:
+            exit loop
+    if {_players}.size() is not 4:
+        delete {-bridge::duos_busy::%{_arena}%}
+        stop
+    # Primeiros quatro válidos da espera; sorteia apenas os lados destes solos.
+    BridgeDuosCollections.shuffle({_players})
+    set {_side1} to new BridgeDuosList()
+    set {_side2} to new BridgeDuosList()
+    {_side1}.add({_players}.get(0))
+    {_side1}.add({_players}.get(1))
+    {_side2}.add({_players}.get(2))
+    {_side2}.add({_players}.get(3))
+    set {_inst} to bridge_prepareTeamLists({_side1}, {_side2}, {_arena})
+    if {_inst} is "":
+        set {-bridge::duos_retry::%{_arena}%} to (unix timestamp of now) + 10
+        send "[Bridge] 2v2 %{_arena}%: preparação recusada; entradas válidas preservadas. Nova tentativa em até 10s." to console
+        delete {-bridge::duos_busy::%{_arena}%}
+        stop
+    delete {-bridge::duos_retry::%{_arena}%}
+    delete {-bridge::duos_busy::%{_arena}%}
+    # A rodada existente continua responsável por kit, contagem e liberação.
+    bridge_startRound({_inst})
+
+command /jogar2v2 [<text>]:
+    executable by: players
+    trigger:
+        if arg-1 is "ajuda":
+            send "%{bridge::config::prefix}% &f/jogar2v2 [arena] &7- fila de solos, precisa de quatro jogadores." to player
+            send "&7Use /l para sair. Party não é puxada: integração coletiva é outra entrega." to player
+            stop
+        set {_u} to player's uuid
+        if {bridge::player::%{_u}%::state} is set:
+            send "%{bridge::config::erro}% &cVocê já está em fila ou partida. Use /l antes de trocar." to player
+            stop
+        if {bridge::config::lobby} is not set:
+            send "%{bridge::config::erro}% &cLobby não configurado." to player
+            stop
+        set {_arena} to arg-1
+        if {_arena} is not set:
+            set {_arena} to first element of {bridge::arenas::*}
+        if {_arena} is not set:
+            send "%{bridge::config::erro}% &cNenhuma arena cadastrada." to player
+            stop
+        if {bridge::arenas::*} does not contain {_arena}:
+            send "%{bridge::config::erro}% &cArena não cadastrada." to player
+            stop
+        if {-bridge::setup::%{_arena}%::active} is true:
+            send "%{bridge::config::erro}% &cAguarde o cadastro da arena terminar." to player
+            stop
+        bridge_duosPrune({_arena})
+        bridge_duosForget({_arena}, {_u})
+        set {_ticket} to BridgeDuosUUID.randomUUID().toString()
+        set {bridge::player::%{_u}%::state} to "QUEUE"
+        set {bridge::player::%{_u}%::queue_arena} to {_arena}
+        set {bridge::player::%{_u}%::queue_mode} to "2v2"
+        set {bridge::player::%{_u}%::queue_ticket} to {_ticket}
+        set {bridge::duos_queue::%{_arena}%::tickets::%{_u}%} to {_ticket}
+        add {_u} to {bridge::duos_queue::%{_arena}%::members::*}
+        set {_n} to size of {bridge::duos_queue::%{_arena}%::members::*}
+        send "%{bridge::config::prefix}% &aFila 2v2 de solos: &f%{_arena}% &8| &e%{_n}%/4 &7(/l para sair)." to player
+        if {bridge::return::%{_u}%::instance} is set:
+            send "&7Entrar na fila não encerra o retorno anterior; começar outra partida encerra." to player
+        bridge_duosTryStart({_arena})
+
+on load:
+    delete {-bridge::duos_busy::*}
+    delete {-bridge::duos_retry::*}
+    set {bridge::tab::custom::jogar2v2::1::*} to "@arenas" and "ajuda"
+    # Não inicia partida durante carregamento; apenas remove esperas inválidas.
+    loop {bridge::arenas::*}:
+        bridge_duosPrune(loop-value)
+    send "[Bridge] 2v2 de solos disponível por /jogar2v2. Carregamento não homologa gameplay." to console
+
+on unload:
+    delete {bridge::tab::custom::jogar2v2::*}
+    delete {-bridge::duos_busy::*}
+
+# Remove registros invalidados por /l e quit sem alterar esses comandos/eventos.
+# O ticket impede reaproveitar uma entrada de vida de fila anterior.
+every 1 second:
+    loop {bridge::arenas::*}:
+        bridge_duosPrune(loop-value)
+        if size of {bridge::duos_queue::%loop-value%::members::*} >= 4:
+            bridge_duosTryStart(loop-value)
