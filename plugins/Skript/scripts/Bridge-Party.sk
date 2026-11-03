@@ -1,0 +1,763 @@
+# Bridge-Delivery-ID: TB-20261103T045209Z-6E1F3E1E
+# Bridge-Base-Commit: 3ecfc9af338151c865916dbfc5b4fe408d58b092
+# THE BRIDGE - PARTY / GRUPOS, LIDERANCA E CONSULTAS
+# Proposta gerada. Requer Skript 2.6.4-for-1.8 e skript-reflect 2.2.3.
+# Nao altera times, filas ou gameplay. Carregamento/gameplay nao verificados.
+
+import:
+    java.util.UUID as BridgePartyUUID
+    org.bukkit.Bukkit as BridgePartyBukkit
+    org.bukkit.Sound as BridgePartySound
+
+function bridge_partyPlayer(u: text) :: object:
+    set {_uuid} to try BridgePartyUUID.fromString({_u})
+    if {_uuid} is set:
+        set {_p} to BridgePartyBukkit.getPlayer({_uuid})
+        if {_p} is set:
+            if {_p}.isOnline() is true:
+                return {_p}
+    stop
+
+function bridge_partyId(u: text) :: text:
+    set {_id} to {bridge::party_member::%{_u}%}
+    if {_id} is set:
+        if {bridge::party::%{_id}%::exists} is true:
+            if {bridge::party::%{_id}%::members::*} contains {_u}:
+                return {_id}
+    return ""
+
+function bridge_partyName(u: text) :: text:
+    if {bridge::party_names::%{_u}%} is set:
+        return {bridge::party_names::%{_u}%}
+    return {_u}
+
+function bridge_partyChat(id: text, msg: text):
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_p} to bridge_partyPlayer(loop-value)
+        if {_p} is set:
+            send "&8[&dParty&8] %{_msg}%" to {_p}
+
+function bridge_partySound(id: text, pitchValue: number):
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_p} to bridge_partyPlayer(loop-value)
+        if {_p} is set:
+            {_p}.playSound({_p}.getLocation(), BridgePartySound.NOTE_PLING, 1.0, {_pitchValue})
+
+function bridge_partyLeader(id: text, u: text) :: boolean:
+    if bridge_partyId({_u}) is {_id}:
+        if {bridge::party::%{_id}%::leaders::*} contains {_u}:
+            return true
+    return false
+
+function bridge_partyMemberNamed(id: text, nick: text) :: text:
+    set {_wanted} to {_nick}.toLowerCase()
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_name} to bridge_partyName(loop-value)
+        if {_name}.toLowerCase() is {_wanted}:
+            return loop-value
+    return ""
+
+function bridge_partyCount(id: text, excluded: text = "") :: integer:
+    set {_n} to 0
+    loop {bridge::party::%{_id}%::members::*}:
+        if loop-value is not {_excluded}:
+            set {_p} to bridge_partyPlayer(loop-value)
+            if {_p} is set:
+                add 1 to {_n}
+    return {_n}
+
+function bridge_partyClearInvites(id: text):
+    loop {bridge::party::%{_id}%::invited::*}:
+        delete {bridge::party_invites::%loop-value%::%{_id}%::*}
+    delete {bridge::party::%{_id}%::invited::*}
+
+function bridge_partyInboxClear(u: text):
+    loop {bridge::parties::*}:
+        remove {_u} from {bridge::party::%loop-value%::invited::*}
+    delete {bridge::party_invites::%{_u}%::*}
+
+function bridge_partyLeadershipChanged(id: text):
+    bridge_partyClearInvites({_id})
+    bridge_partyChat({_id}, "&eLiderança atualizada. Convites anteriores cancelados.")
+
+function bridge_partyDissolve(id: text, reason: text):
+    if {bridge::party::%{_id}%::exists} is not true:
+        stop
+    bridge_partyChat({_id}, "&eParty dissolvida: %{_reason}%")
+    bridge_partyClearInvites({_id})
+    loop {bridge::party::%{_id}%::members::*}:
+        if {bridge::party_member::%loop-value%} is {_id}:
+            delete {bridge::party_member::%loop-value%}
+    remove {_id} from {bridge::parties::*}
+    delete {bridge::party::%{_id}%::*}
+
+function bridge_partySuccession(id: text):
+    if {bridge::party::%{_id}%::vote::active} is true:
+        stop
+    set {_now} to unix timestamp of now
+    set {_changed} to false
+    set {_leaders::*} to {bridge::party::%{_id}%::leaders::*}
+    set {_pending} to false
+    set {_online} to 0
+    loop {_leaders::*}:
+        set {_u} to loop-value
+        set {_p} to bridge_partyPlayer({_u})
+        if {_p} is set:
+            delete {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+            add 1 to {_online}
+        else:
+            set {_deadline} to {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+            if {_deadline} is not set:
+                set {_deadline} to {_now} + 30
+                set {bridge::party::%{_id}%::leader_deadline::%{_u}%} to {_deadline}
+            if {_deadline} <= {_now}:
+                remove {_u} from {bridge::party::%{_id}%::leaders::*}
+                delete {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+                set {_changed} to true
+                bridge_partyChat({_id}, "&f%bridge_partyName({_u})% &eperdeu a liderança após 30s de ausência.")
+            else:
+                set {_pending} to true
+    if {_online} is 0:
+        if {_pending} is false:
+            loop {bridge::party::%{_id}%::members::*}:
+                set {_p} to bridge_partyPlayer(loop-value)
+                if {_p} is set:
+                    if {bridge::party::%{_id}%::leaders::*} does not contain loop-value:
+                        add loop-value to {bridge::party::%{_id}%::leaders::*}
+                        set {_changed} to true
+                        bridge_partyChat({_id}, "&aNovo líder por antiguidade: &f%bridge_partyName(loop-value)%&a.")
+                    exit loop
+    if {_changed} is true:
+        bridge_partyLeadershipChanged({_id})
+
+function bridge_partyRemove(id: text, u: text, reason: text):
+    if bridge_partyId({_u}) is not {_id}:
+        stop
+    set {_wasLeader} to bridge_partyLeader({_id}, {_u})
+    set {_p} to bridge_partyPlayer({_u})
+    if {_p} is set:
+        send "&8[&dParty&8] &eVocê saiu da party: %{_reason}%" to {_p}
+    remove {_u} from {bridge::party::%{_id}%::members::*}
+    remove {_u} from {bridge::party::%{_id}%::leaders::*}
+    delete {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+    delete {bridge::party_member::%{_u}%}
+    bridge_partyChat({_id}, "&f%bridge_partyName({_u})% &esaiu: %{_reason}%")
+    if bridge_partyCount({_id}) is 0:
+        bridge_partyDissolve({_id}, "nenhum integrante conectado")
+        stop
+    if {_wasLeader} is true:
+        bridge_partyLeadershipChanged({_id})
+        bridge_partySuccession({_id})
+
+function bridge_partyBlocked(id: text, p: player) :: boolean:
+    if {bridge::party::%{_id}%::vote::active} is true:
+        send "&8[&dParty&8] &cAguarde a votação atual. Alterações da party estão bloqueadas." to {_p}
+        return true
+    return false
+
+function bridge_partyCreate(p: player):
+    set {_u} to "%{_p}'s uuid%"
+    if bridge_partyId({_u}) is not "":
+        send "&8[&dParty&8] &cVocê já está em uma party." to {_p}
+        stop
+    set {_id} to BridgePartyUUID.randomUUID().toString()
+    if {bridge::party::%{_id}%::exists} is true:
+        stop
+    set {bridge::party::%{_id}%::exists} to true
+    set {bridge::party::%{_id}%::public} to false
+    set {bridge::party::%{_id}%::members::1} to {_u}
+    set {bridge::party::%{_id}%::leaders::1} to {_u}
+    set {bridge::party_member::%{_u}%} to {_id}
+    add {_id} to {bridge::parties::*}
+    bridge_partyChat({_id}, "&aParty criada, privada. Você é o líder. &f/party ajuda")
+
+function bridge_partyInvite(p: player, nick: text):
+    set {_u} to "%{_p}'s uuid%"
+    set {_id} to bridge_partyId({_u})
+    if bridge_partyLeader({_id}, {_u}) is not true:
+        send "&8[&dParty&8] &cSomente líderes podem convidar." to {_p}
+        stop
+    set {_target} to BridgePartyBukkit.getPlayerExact({_nick})
+    if {_target} is not set:
+        send "&8[&dParty&8] &cJogador não encontrado online." to {_p}
+        stop
+    set {_t} to {_target}.getUniqueId().toString()
+    if bridge_partyId({_t}) is {_id}:
+        send "&8[&dParty&8] &cEsse jogador já faz parte da party." to {_p}
+        stop
+    set {_now} to unix timestamp of now
+    if {bridge::party_invites::%{_t}%::%{_id}%::deadline} > {_now}:
+        send "&8[&dParty&8] &eConvite já pendente; prazo não renovado." to {_p}
+        stop
+    set {_token} to BridgePartyUUID.randomUUID().toString()
+    set {_targetName} to {_target}.getName()
+    set {bridge::party_invites::%{_t}%::%{_id}%::token} to {_token}
+    set {bridge::party_invites::%{_t}%::%{_id}%::deadline} to {_now} + 60
+    if {bridge::party::%{_id}%::invited::*} does not contain {_t}:
+        add {_t} to {bridge::party::%{_id}%::invited::*}
+    bridge_partyChat({_id}, "&f%name of {_p}% &econvidou &f%{_targetName}%&e. Expira em 60s.")
+    {_target}.sendMessage("§d[Party] Convite de %name of {_p}%. Expira em 60 segundos.")
+    if bridge_partyId({_t}) is not "":
+        {_target}.sendMessage("§eAceitar troca sua party atual por esta.")
+    execute console command "tellraw %{_targetName}% {""text"":""[ACEITAR E ENTRAR NA PARTY]"",""color"":""green"",""clickEvent"":{""action"":""run_command"",""value"":""/party aceitar %{_id}% %{_token}%""}}"
+
+function bridge_partyJoin(p: player, id: text, token: text, publicEntry: boolean, confirmed: boolean):
+    set {_u} to "%{_p}'s uuid%"
+    set {_old} to bridge_partyId({_u})
+    if {bridge::party::%{_id}%::exists} is not true:
+        send "&8[&dParty&8] &cEssa party não existe mais." to {_p}
+        stop
+    if {_old} is {_id}:
+        send "&8[&dParty&8] &eVocê já está nessa party." to {_p}
+        stop
+    if bridge_partyBlocked({_id}, {_p}) is true:
+        stop
+    if {_old} is not "":
+        if bridge_partyBlocked({_old}, {_p}) is true:
+            stop
+    if {_publicEntry} is true:
+        if {bridge::party::%{_id}%::public} is not true:
+            send "&8[&dParty&8] &cA party não está mais pública." to {_p}
+            stop
+        if {bridge::party::%{_id}%::public_token} is not {_token}:
+            send "&8[&dParty&8] &cDivulgação antiga. Use uma divulgação atual." to {_p}
+            stop
+        if {_old} is not "":
+            if {_confirmed} is not true:
+                send "&8[&dParty&8] &eVocê sairá da sua party atual. Confirme a troca:" to {_p}
+                execute console command "tellraw %{_p}% {""text"":""[CONFIRMAR TROCA DE PARTY]"",""color"":""yellow"",""clickEvent"":{""action"":""run_command"",""value"":""/party confirmar %{_id}% %{_token}%""}}"
+                stop
+    else:
+        if {bridge::party_invites::%{_u}%::%{_id}%::token} is not {_token}:
+            send "&8[&dParty&8] &cConvite inválido ou cancelado." to {_p}
+            stop
+        set {_deadline} to {bridge::party_invites::%{_u}%::%{_id}%::deadline}
+        if {_deadline} is not set:
+            stop
+        if {_deadline} <= (unix timestamp of now):
+            send "&8[&dParty&8] &cConvite expirado." to {_p}
+            stop
+    # Sem waits: destino e origem validados antes de alterar vínculos.
+    if {_old} is not "":
+        bridge_partyRemove({_old}, {_u}, "troca de party")
+    add {_u} to {bridge::party::%{_id}%::members::*}
+    set {bridge::party_member::%{_u}%} to {_id}
+    bridge_partyInboxClear({_u})
+    bridge_partyChat({_id}, "&aEntrou: &f%name of {_p}%&a. &7A ordem de entrada define a antiguidade.")
+    delete {bridge::party::%{_id}%::recovering}
+    bridge_partySuccession({_id})
+
+function bridge_partyShow(p: player, id: text):
+    if {_id} is "":
+        send "&8[&dParty&8] &eVocê não está em uma party. &f/party criar" to {_p}
+        stop
+    send "&8&m--------------------------------" to {_p}
+    send "&dParty &8| &7Integrantes por ordem de entrada:" to {_p}
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_u} to loop-value
+        set {_role} to "membro"
+        if bridge_partyLeader({_id}, {_u}) is true:
+            set {_role} to "líder"
+        set {_status} to "&8offline"
+        set {_online} to bridge_partyPlayer({_u})
+        if {_online} is set:
+            set {_status} to "&aonline"
+        send " &f%bridge_partyName({_u})% &7(%{_role}%) &8| %{_status}%" to {_p}
+    send "&7Entrada pública: &f%{bridge::party::%{_id}%::public}% &8| &7Não inicia times nesta entrega." to {_p}
+    if {bridge::party::%{_id}%::vote::active} is true:
+        send "&eConsulta em andamento: %{bridge::party::%{_id}%::vote::kind}%" to {_p}
+
+function bridge_partyVoteClose(id: text, message: text):
+    delete {bridge::party::%{_id}%::vote::*}
+    bridge_partyChat({_id}, {_message})
+    bridge_partySound({_id}, 1.8)
+    bridge_partySuccession({_id})
+
+function bridge_partyVotePrompt(id: text):
+    set {_token} to {bridge::party::%{_id}%::vote::token}
+    set {_kind} to {bridge::party::%{_id}%::vote::kind}
+    loop {bridge::party::%{_id}%::vote::electors::*}:
+        set {_p} to bridge_partyPlayer(loop-value)
+        if {_p} is set:
+            set {_pName} to {_p}.getName()
+            send "&d[Party] &e%{_kind}% &8| &fAté 30s. Voto definitivo." to {_p}
+            if {_kind} is "EXPULSAO" or "REVOLUCAO":
+                send "&7Mais SIM que NÃO entre votantes. Empate/nenhum voto rejeitam." to {_p}
+                if {_kind} is "EXPULSAO":
+                    send "&7Alvo: &f%bridge_partyName({bridge::party::%{_id}%::vote::target})%" to {_p}
+                execute console command "tellraw %{_pName}% {""text"":"""",""extra"":[{""text"":""[SIM] "",""color"":""green"",""clickEvent"":{""action"":""run_command"",""value"":""/party votar %{_token}% sim""}},{""text"":""[NÃO]"",""color"":""red"",""clickEvent"":{""action"":""run_command"",""value"":""/party votar %{_token}% nao""}}]}"
+            else:
+                send "&7Clique no candidato. Pode votar em si mesmo; abstenção não é voto." to {_p}
+                loop {bridge::party::%{_id}%::vote::candidates::*}:
+                    set {_candidate} to loop-value-2
+                    set {_nick} to bridge_partyName({_candidate})
+                    execute console command "tellraw %{_pName}% {""text"":""[%{_nick}%]"",""color"":""aqua"",""clickEvent"":{""action"":""run_command"",""value"":""/party votar %{_token}% %{_candidate}%""}}"
+    bridge_partySound({_id}, 1.5)
+
+function bridge_partyElectionStart(id: text, runoff: boolean):
+    set {_candidates::*} to {bridge::party::%{_id}%::vote::next::*}
+    delete {bridge::party::%{_id}%::vote::*}
+    set {bridge::party::%{_id}%::vote::active} to true
+    set {bridge::party::%{_id}%::vote::token} to BridgePartyUUID.randomUUID().toString()
+    set {bridge::party::%{_id}%::vote::deadline} to (unix timestamp of now) + 30
+    set {bridge::party::%{_id}%::vote::kind} to "ELEICAO"
+    if {_runoff} is true:
+        set {bridge::party::%{_id}%::vote::kind} to "SEGUNDO TURNO"
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_u} to loop-value
+        set {_p} to bridge_partyPlayer({_u})
+        if {_p} is set:
+            add {_u} to {bridge::party::%{_id}%::vote::electors::*}
+            if {_runoff} is false:
+                add {_u} to {bridge::party::%{_id}%::vote::candidates::*}
+            else:
+                if {_candidates::*} contains {_u}:
+                    add {_u} to {bridge::party::%{_id}%::vote::candidates::*}
+    bridge_partyChat({_id}, "&eEleição: nova liderança substitui a anterior. Até três líderes; desempate por antiguidade quando necessário.")
+    bridge_partyVotePrompt({_id})
+
+function bridge_partyVoteStart(p: player, id: text, kind: text, target: text):
+    set {_u} to "%{_p}'s uuid%"
+    if bridge_partyLeader({_id}, {_u}) is true:
+        send "&8[&dParty&8] &cEssa proposta é de integrante comum. Líder tem os comandos de gestão." to {_p}
+        stop
+    if {_kind} is "EXPULSAO":
+        if bridge_partyId({_target}) is not {_id}:
+            send "&8[&dParty&8] &cMembro não encontrado." to {_p}
+            stop
+        if bridge_partyLeader({_id}, {_target}) is true:
+            send "&8[&dParty&8] &cLíder não pode ser alvo. Mudança de comando: /party revolucao." to {_p}
+            stop
+    delete {bridge::party::%{_id}%::vote::*}
+    set {bridge::party::%{_id}%::vote::active} to true
+    set {bridge::party::%{_id}%::vote::kind} to {_kind}
+    set {bridge::party::%{_id}%::vote::target} to {_target}
+    set {bridge::party::%{_id}%::vote::token} to BridgePartyUUID.randomUUID().toString()
+    set {bridge::party::%{_id}%::vote::deadline} to (unix timestamp of now) + 30
+    loop {bridge::party::%{_id}%::members::*}:
+        set {_pOnline} to bridge_partyPlayer(loop-value)
+        if {_pOnline} is set:
+            add loop-value to {bridge::party::%{_id}%::vote::electors::*}
+    bridge_partyChat({_id}, "&f%name of {_p}% &epropôs %{_kind}%. Não há SIM automático do solicitante.")
+    bridge_partyVotePrompt({_id})
+
+function bridge_partyElect(id: text):
+    set {_winners::*} to {bridge::party::%{_id}%::vote::winners::*}
+    if size of {_winners::*} is 0:
+        bridge_partyVoteClose({_id}, "&eEleição cancelada: nenhum eleito válido. Liderança anterior preservada, sujeita à ausência.")
+        stop
+    # Vencedores já ordenados pela antiguidade e limitados a três.
+    delete {bridge::party::%{_id}%::leaders::*}
+    delete {bridge::party::%{_id}%::leader_deadline::*}
+    loop {_winners::*}:
+        add loop-value to {bridge::party::%{_id}%::leaders::*}
+        bridge_partyChat({_id}, "&aEleito líder: &f%bridge_partyName(loop-value)%&a.")
+    bridge_partyLeadershipChanged({_id})
+    bridge_partyVoteClose({_id}, "&aEleição encerrada. Antigos líderes não eleitos continuam como membros.")
+
+function bridge_partyVoteEvaluate(id: text, expired: boolean):
+    if {bridge::party::%{_id}%::vote::active} is not true:
+        stop
+    set {_kind} to {bridge::party::%{_id}%::vote::kind}
+    set {_cast} to 0
+    set {_yes} to 0
+    set {_no} to 0
+    loop {bridge::party::%{_id}%::vote::electors::*}:
+        set {_choice} to {bridge::party::%{_id}%::vote::ballots::%loop-value%}
+        if {_choice} is set:
+            add 1 to {_cast}
+            if {_choice} is "sim":
+                add 1 to {_yes}
+            else if {_choice} is "nao":
+                add 1 to {_no}
+            else:
+                add 1 to {_scores::%{_choice}%}
+    set {_remaining} to (size of {bridge::party::%{_id}%::vote::electors::*}) - {_cast}
+    if {_kind} is "EXPULSAO" or "REVOLUCAO":
+        set {_done} to {_expired}
+        if {_yes} > {_no} + {_remaining}:
+            set {_done} to true
+        if {_no} >= {_yes} + {_remaining}:
+            set {_done} to true
+        if {_done} is not true:
+            stop
+        bridge_partyChat({_id}, "&eResultado %{_kind}%: &a%{_yes}% SIM &8| &c%{_no}% NÃO&7. Abstenções não são votos.")
+        if {_yes} > {_no}:
+            if {_kind} is "REVOLUCAO":
+                bridge_partyChat({_id}, "&aRevolução aprovada. Abrindo eleição.")
+                bridge_partyElectionStart({_id}, false)
+            else:
+                set {_target} to {bridge::party::%{_id}%::vote::target}
+                delete {bridge::party::%{_id}%::vote::*}
+                bridge_partyRemove({_id}, {_target}, "expulsão aprovada por votação")
+                bridge_partySuccession({_id})
+        else:
+            bridge_partyVoteClose({_id}, "&eProposta rejeitada. Empate/nenhum voto não aprovam.")
+        stop
+    set {_top} to -1
+    set {_second} to -1
+    set {_third} to -1
+    loop {bridge::party::%{_id}%::vote::candidates::*}:
+        set {_u} to loop-value
+        set {_s} to {_scores::%{_u}%}
+        if {_s} is not set:
+            set {_s} to 0
+            set {_scores::%{_u}%} to 0
+        if {_s} > {_top}:
+            set {_third} to {_second}
+            set {_second} to {_top}
+            set {_top} to {_s}
+        else if {_s} > {_second}:
+            set {_third} to {_second}
+            set {_second} to {_s}
+        else if {_s} > {_third}:
+            set {_third} to {_s}
+    if {_top} < 0:
+        bridge_partyVoteClose({_id}, "&eEleição cancelada: não restou candidato.")
+        stop
+    set {_done} to {_expired}
+    if {_remaining} is 0:
+        set {_done} to true
+    if {_cast} > 0:
+        if size of {bridge::party::%{_id}%::vote::candidates::*} is 1:
+            set {_done} to true
+        if {_kind} is "ELEICAO":
+            if {_top} * 2 > {_cast} + {_remaining}:
+                set {_done} to true
+            # Top 2 irrevogáveis, sem maioria possível nem empate com terceiro.
+            if {_second} >= 0:
+                if {_third} >= 0:
+                    if {_second} > {_third} + {_remaining}:
+                        if 2 * {_top} + {_remaining} <= {_cast}:
+                            set {_done} to true
+        else:
+            if {_top} > {_second} + {_remaining}:
+                set {_done} to true
+    if {_done} is not true:
+        stop
+    if {_cast} is 0:
+        bridge_partyVoteClose({_id}, "&eEleição cancelada: nenhum voto válido. Liderança anterior preservada, sujeita à ausência.")
+        stop
+    delete {bridge::party::%{_id}%::vote::winners::*}
+    loop {bridge::party::%{_id}%::vote::candidates::*}:
+        if {_scores::%loop-value%} is {_top}:
+            add loop-value to {_first::*}
+    bridge_partyChat({_id}, "&eApuração %{_kind}%: %{_cast}% votos válidos.")
+    loop {bridge::party::%{_id}%::vote::candidates::*}:
+        bridge_partyChat({_id}, "&f%bridge_partyName(loop-value)% &8| &b%{_scores::%loop-value%}% voto(s)")
+    if {_kind} is "SEGUNDO TURNO":
+        loop {_first::*}:
+            if size of {bridge::party::%{_id}%::vote::winners::*} < 3:
+                add loop-value to {bridge::party::%{_id}%::vote::winners::*}
+        bridge_partyElect({_id})
+        stop
+    if 2 * {_top} > {_cast}:
+        set {bridge::party::%{_id}%::vote::winners::1} to {_first::1}
+        bridge_partyElect({_id})
+        stop
+    if size of {_first::*} > 1:
+        loop {_first::*}:
+            if size of {bridge::party::%{_id}%::vote::next::*} < 3:
+                add loop-value to {bridge::party::%{_id}%::vote::next::*}
+        bridge_partyElectionStart({_id}, true)
+        stop
+    loop {bridge::party::%{_id}%::vote::candidates::*}:
+        if {_scores::%loop-value%} is {_second}:
+            add loop-value to {_secondPlace::*}
+    if size of {_secondPlace::*} > 1:
+        set {bridge::party::%{_id}%::vote::winners::1} to {_first::1}
+        bridge_partyChat({_id}, "&ePrimeiro isolado e empate no segundo: primeiro eleito sem segundo turno.")
+        bridge_partyElect({_id})
+        stop
+    set {bridge::party::%{_id}%::vote::next::1} to {_first::1}
+    set {bridge::party::%{_id}%::vote::next::2} to {_secondPlace::1}
+    bridge_partyElectionStart({_id}, true)
+
+function bridge_partyVoteCast(p: player, id: text, token: text, choice: text):
+    set {_u} to "%{_p}'s uuid%"
+    if {bridge::party::%{_id}%::vote::active} is not true:
+        send "&8[&dParty&8] &cNão há votação nesta party." to {_p}
+        stop
+    if {bridge::party::%{_id}%::vote::token} is not {_token}:
+        send "&8[&dParty&8] &cEsse botão pertence a outra consulta ou turno." to {_p}
+        stop
+    if {bridge::party::%{_id}%::vote::deadline} <= (unix timestamp of now):
+        bridge_partyVoteEvaluate({_id}, true)
+        send "&8[&dParty&8] &ePrazo encerrado; voto não registrado." to {_p}
+        stop
+    if {bridge::party::%{_id}%::vote::electors::*} does not contain {_u}:
+        send "&8[&dParty&8] &cVocê não é eleitor elegível nesta consulta." to {_p}
+        stop
+    if {bridge::party::%{_id}%::vote::ballots::%{_u}%} is set:
+        send "&8[&dParty&8] &eSeu primeiro voto é definitivo." to {_p}
+        stop
+    set {_kind} to {bridge::party::%{_id}%::vote::kind}
+    if {_kind} is "EXPULSAO" or "REVOLUCAO":
+        if {_choice} is not "sim":
+            if {_choice} is not "nao":
+                send "&8[&dParty&8] &cVote sim ou nao." to {_p}
+                stop
+    else:
+        if {bridge::party::%{_id}%::vote::candidates::*} does not contain {_choice}:
+            send "&8[&dParty&8] &cCandidato não elegível. Use um nick clicável da consulta atual." to {_p}
+            stop
+    set {bridge::party::%{_id}%::vote::ballots::%{_u}%} to {_choice}
+    send "&8[&dParty&8] &aVoto registrado e definitivo." to {_p}
+    bridge_partyVoteEvaluate({_id}, false)
+
+function bridge_partyDisconnect(id: text, u: text):
+    if {bridge::party::%{_id}%::exists} is not true:
+        stop
+    if bridge_partyLeader({_id}, {_u}) is true:
+        set {bridge::party::%{_id}%::leader_deadline::%{_u}%} to (unix timestamp of now) + 30
+    if {bridge::party::%{_id}%::vote::active} is true:
+        remove {_u} from {bridge::party::%{_id}%::vote::electors::*}
+        delete {bridge::party::%{_id}%::vote::ballots::%{_u}%}
+        if {bridge::party::%{_id}%::vote::candidates::*} contains {_u}:
+            remove {_u} from {bridge::party::%{_id}%::vote::candidates::*}
+            loop {bridge::party::%{_id}%::vote::electors::*}:
+                if {bridge::party::%{_id}%::vote::ballots::%loop-value%} is {_u}:
+                    delete {bridge::party::%{_id}%::vote::ballots::%loop-value%}
+            bridge_partyChat({_id}, "&eCandidato %bridge_partyName({_u})% desconectou. Seus votos foram anulados; eleitores afetados podem escolher outro candidato.")
+        bridge_partyChat({_id}, "&e%bridge_partyName({_u})% desconectou e não volta ao eleitorado desta consulta ao reconectar.")
+    if bridge_partyCount({_id}, {_u}) is 0:
+        bridge_partyDissolve({_id}, "todos os integrantes offline")
+        stop
+    bridge_partyChat({_id}, "&7%bridge_partyName({_u})% ficou offline; vínculo de membro preservado.")
+    if bridge_partyLeader({_id}, {_u}) is true:
+        bridge_partyChat({_id}, "&eLíder ausente: espera de 30s. Sucessão fica pendente enquanto houver consulta.")
+    bridge_partyVoteEvaluate({_id}, false)
+
+function bridge_partyHelp(p: player):
+    send "&8&m--------------------------------" to {_p}
+    send "&d&lPARTY &7- grupos independentes do modo de times" to {_p}
+    send "&f/party criar &8| &f/party lista &8| &f/party sair" to {_p}
+    send "&f/party convidar <nick> &7- líder; convite de 60s" to {_p}
+    send "&f/party transferir <nick> &7- transfere sua liderança, sem sair" to {_p}
+    send "&f/party adicionarlider <nick> &7- até três líderes online" to {_p}
+    send "&f/party expulsar <nick> &7- líder; inclusive membro offline" to {_p}
+    send "&f/party dissolver &7- líder; encerra o grupo" to {_p}
+    send "&f/party divulgar &8| &f/party privada &7- líder" to {_p}
+    send "&f/party votarexpulsao <nick> &7- membro comum" to {_p}
+    send "&f/party revolucao &7- membro comum; consulta e eleição" to {_p}
+    send "&7Convites/entradas/votos: use os botões atuais no chat." to {_p}
+    send "&7Consultas: até 30s, voto definitivo; resultado decidido conclui antes." to {_p}
+    send "&7Durante consulta: só ajuda, lista e voto; sem alterações da party." to {_p}
+    send "&7Esta versão não puxa integrantes para fila/partida." to {_p}
+
+command /party [<text>] [<text>] [<text>]:
+    executable by: players
+    trigger:
+        if {-bridge::party_ready} is not true:
+            send "&8[&dParty&8] &eMódulo em recuperação. Tente novamente em instantes." to player
+            stop
+        set {_u} to "%player's uuid%"
+        set {bridge::party_names::%{_u}%} to name of player
+        set {_id} to bridge_partyId({_u})
+        set {_action} to arg-1
+        if {_action} is not set:
+            bridge_partyShow(player, {_id})
+            stop
+        set {_action} to {_action}.toLowerCase()
+        if {_action} is "ajuda":
+            bridge_partyHelp(player)
+            stop
+        if {_action} is "lista":
+            bridge_partyShow(player, {_id})
+            stop
+        if {_action} is "votar":
+            if arg-2 is not set:
+                send "&8[&dParty&8] &cUse o botão da consulta atual." to player
+                stop
+            if arg-3 is not set:
+                stop
+            bridge_partyVoteCast(player, {_id}, arg-2, arg-3)
+            stop
+        if bridge_partyBlocked({_id}, player) is true:
+            stop
+        if {_action} is "criar":
+            bridge_partyCreate(player)
+            stop
+        if {_action} is "aceitar" or "entrar" or "confirmar":
+            if arg-2 is not set:
+                send "&8[&dParty&8] &cUse o botão do convite ou divulgação atual." to player
+                stop
+            if arg-3 is not set:
+                stop
+            set {_public} to true
+            set {_confirmed} to false
+            if {_action} is "aceitar":
+                set {_public} to false
+                set {_confirmed} to true
+            if {_action} is "confirmar":
+                set {_confirmed} to true
+            bridge_partyJoin(player, arg-2, arg-3, {_public}, {_confirmed})
+            stop
+        if {_id} is "":
+            send "&8[&dParty&8] &cVocê não está em uma party. &f/party criar" to player
+            stop
+        if {_action} is "sair":
+            bridge_partyRemove({_id}, {_u}, "saída voluntária")
+            stop
+        if {_action} is "revolucao":
+            bridge_partyVoteStart(player, {_id}, "REVOLUCAO", "")
+            stop
+        if {_action} is "votarexpulsao":
+            if arg-2 is not set:
+                send "&8[&dParty&8] &cUse /party votarexpulsao <nick>." to player
+                stop
+            set {_target} to bridge_partyMemberNamed({_id}, arg-2)
+            bridge_partyVoteStart(player, {_id}, "EXPULSAO", {_target})
+            stop
+        if bridge_partyLeader({_id}, {_u}) is not true:
+            send "&8[&dParty&8] &cEssa ação exige liderança. &f/party ajuda" to player
+            stop
+        if {_action} is "convidar":
+            if arg-2 is not set:
+                send "&8[&dParty&8] &cUse /party convidar <nick>." to player
+                stop
+            bridge_partyInvite(player, arg-2)
+            stop
+        if {_action} is "dissolver":
+            bridge_partyDissolve({_id}, "encerrada por %name of player%")
+            stop
+        if {_action} is "divulgar":
+            set {bridge::party::%{_id}%::public} to true
+            if {bridge::party::%{_id}%::public_token} is not set:
+                set {bridge::party::%{_id}%::public_token} to BridgePartyUUID.randomUUID().toString()
+            set {_token} to {bridge::party::%{_id}%::public_token}
+            bridge_partyChat({_id}, "&f%name of player% &etornou/divulgou a party pública.")
+            loop all players:
+                execute console command "tellraw %loop-player% {""text"":""[PARTY PÚBLICA DE %name of player% - CLIQUE PARA ENTRAR]"",""color"":""light_purple"",""clickEvent"":{""action"":""run_command"",""value"":""/party entrar %{_id}% %{_token}%""}}"
+            stop
+        if {_action} is "privada":
+            set {bridge::party::%{_id}%::public} to false
+            delete {bridge::party::%{_id}%::public_token}
+            bridge_partyChat({_id}, "&f%name of player% &etornou a party privada. Divulgações antigas invalidadas.")
+            stop
+        if {_action} is "expulsar" or "transferir" or "adicionarlider":
+            if arg-2 is not set:
+                send "&8[&dParty&8] &cInforme o nick do integrante." to player
+                stop
+            set {_target} to bridge_partyMemberNamed({_id}, arg-2)
+            if {_target} is "":
+                send "&8[&dParty&8] &cIntegrante não encontrado." to player
+                stop
+            if bridge_partyLeader({_id}, {_target}) is true:
+                send "&8[&dParty&8] &cO integrante já é líder; líderes não podem se expulsar." to player
+                stop
+            if {_action} is "expulsar":
+                bridge_partyRemove({_id}, {_target}, "expulso por %name of player%")
+                stop
+            set {_pTarget} to bridge_partyPlayer({_target})
+            if {_pTarget} is not set:
+                send "&8[&dParty&8] &cTransferência/adição exige integrante online." to player
+                stop
+            if {_action} is "adicionarlider":
+                if size of {bridge::party::%{_id}%::leaders::*} >= 3:
+                    send "&8[&dParty&8] &cJá existem três líderes." to player
+                    stop
+            if {_action} is "transferir":
+                remove {_u} from {bridge::party::%{_id}%::leaders::*}
+                delete {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+                bridge_partyChat({_id}, "&f%name of player% &etransferiu sua liderança e continua como integrante.")
+            add {_target} to {bridge::party::%{_id}%::leaders::*}
+            delete {bridge::party::%{_id}%::leader_deadline::%{_target}%}
+            bridge_partyChat({_id}, "&aLíder: &f%bridge_partyName({_target})%&a.")
+            bridge_partyLeadershipChanged({_id})
+            stop
+        send "&8[&dParty&8] &cAção desconhecida. &f/party ajuda" to player
+
+on join:
+    set {_u} to "%player's uuid%"
+    set {bridge::party_names::%{_u}%} to name of player
+    set {_id} to bridge_partyId({_u})
+    if {_id} is "":
+        stop
+    delete {bridge::party::%{_id}%::recovering}
+    if bridge_partyLeader({_id}, {_u}) is true:
+        set {_deadline} to {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+        if {_deadline} is set:
+            if {_deadline} <= (unix timestamp of now):
+                if {bridge::party::%{_id}%::vote::active} is not true:
+                    remove {_u} from {bridge::party::%{_id}%::leaders::*}
+                    bridge_partyLeadershipChanged({_id})
+            else:
+                delete {bridge::party::%{_id}%::leader_deadline::%{_u}%}
+    bridge_partyChat({_id}, "&a%name of player% reconectou; vínculo preservado.")
+    bridge_partySuccession({_id})
+
+on quit:
+    set {_u} to "%player's uuid%"
+    set {_id} to bridge_partyId({_u})
+    if {_id} is "":
+        stop
+    # Evita tratar a fase técnica de encerramento como abandono coletivo.
+    # No shutdown tarefas pendentes não são usadas como prova de desconexão normal.
+    set {_epoch} to {-bridge::party_epoch}
+    wait 1 tick
+    if {-bridge::party_ready} is not true:
+        stop
+    if {-bridge::party_epoch} is not {_epoch}:
+        stop
+    if bridge_partyId({_u}) is not {_id}:
+        stop
+    bridge_partyDisconnect({_id}, {_u})
+
+on load:
+    set {-bridge::party_ready} to false
+    set {-bridge::party_epoch} to BridgePartyUUID.randomUUID().toString()
+    set {bridge::tab::custom::party::1::*} to "ajuda", "criar", "lista", "convidar", "sair", "dissolver", "transferir", "adicionarlider", "expulsar", "votarexpulsao", "revolucao", "divulgar" and "privada"
+    delete {bridge::tab::custom::party::2::*}
+    loop {bridge::parties::*}:
+        set {_id} to loop-value
+        set {bridge::party::%{_id}%::recovering} to true
+        if {bridge::party::%{_id}%::vote::active} is true:
+            # Não executar voto interrompido com eleitorado de outra inicialização.
+            delete {bridge::party::%{_id}%::vote::*}
+            bridge_partyChat({_id}, "&eConsulta interrompida pelo recarregamento; sem aplicar resultado. Abra nova consulta.")
+        loop {bridge::party::%{_id}%::leaders::*}:
+            set {bridge::party::%{_id}%::leader_deadline::%loop-value-2%} to (unix timestamp of now) + 30
+    wait 2 ticks
+    set {-bridge::party_ready} to true
+    send "[Bridge] Party: módulo carregado. Isso não certifica comandos, persistência ou gameplay." to console
+
+on unload:
+    set {-bridge::party_ready} to false
+    delete {bridge::tab::custom::party::*}
+
+every 1 second:
+    if {-bridge::party_ready} is not true:
+        stop
+    set {_ids::*} to {bridge::parties::*}
+    set {_now} to unix timestamp of now
+    loop {_ids::*}:
+        set {_id} to loop-value
+        if {bridge::party::%{_id}%::exists} is true:
+            if bridge_partyCount({_id}) > 0:
+                delete {bridge::party::%{_id}%::recovering}
+            if {bridge::party::%{_id}%::recovering} is not true:
+                if bridge_partyCount({_id}) is 0:
+                    bridge_partyDissolve({_id}, "todos offline")
+                else:
+                    bridge_partySuccession({_id})
+                    if {bridge::party::%{_id}%::vote::active} is true:
+                        set {_left} to ceil({bridge::party::%{_id}%::vote::deadline} - {_now})
+                        if {_left} <= 0:
+                            bridge_partyVoteEvaluate({_id}, true)
+                        else:
+                            if {_left} is 10 or 5:
+                                if {bridge::party::%{_id}%::vote::last_notice} is not {_left}:
+                                    set {bridge::party::%{_id}%::vote::last_notice} to {_left}
+                                    bridge_partyChat({_id}, "&eConsulta: %{_left}%s restantes. Use os botões atuais.")
+                                    bridge_partySound({_id}, 1.3)
+                    set {_invited::*} to {bridge::party::%{_id}%::invited::*}
+                    loop {_invited::*}:
+                        set {_u} to loop-value-2
+                        if {bridge::party_invites::%{_u}%::%{_id}%::deadline} <= {_now}:
+                            delete {bridge::party_invites::%{_u}%::%{_id}%::*}
+                            remove {_u} from {bridge::party::%{_id}%::invited::*}
+                            set {_p} to bridge_partyPlayer({_u})
+                            if {_p} is set:
+                                send "&8[&dParty&8] &eUm convite de party expirou após 60s." to {_p}
+                            bridge_partyChat({_id}, "&eConvite para %bridge_partyName({_u})% expirou.")
