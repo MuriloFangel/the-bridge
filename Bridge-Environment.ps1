@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T020722Z-E7DF76B7
-# Bridge-Base-Commit: 7a523837c6c38f48fd61662fa5dfda09adc0d58b
+# Bridge-Delivery-ID: TB-20261103T031033Z-079B25C6
+# Bridge-Base-Commit: ec3e622e20408b0ea797662699da010f1349ae4e
 #requires -Version 7.2
 function Invoke-BridgeLocalTool {
  param([string]$Tool,[hashtable]$Arguments=@{})
@@ -31,7 +31,7 @@ function Read-BridgePanelState([string]$Root){
  if(-not(Test-Path -LiteralPath $p)){return $fresh}
  $s=[IO.File]::ReadAllText($p) | ConvertFrom-Json -AsHashtable
  if(-not $s.server -or -not $s.bots -or -not $s.desktop){throw 'Estado do painel invalido; nao assumir processos'}
- if($s.boot -cne $fresh.boot){return $fresh};return $s
+ if(([datetimeoffset]$s.boot).UtcDateTime.Ticks -ne ([datetimeoffset]$fresh.boot).UtcDateTime.Ticks){return $fresh};return $s
 }
 function Invoke-BridgeIdentity([string]$Mode,$Value){
  try{if($Mode -eq 'Capture'){$p=Get-Process -Id ([int]$Value) -ErrorAction Stop;return @{pid=$p.Id;born=$p.StartTime.ToUniversalTime().ToString('o');exe=$p.MainModule.FileName}}

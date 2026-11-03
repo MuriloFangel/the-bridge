@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T031033Z-079B25C6",
+  "status": "GERADA",
+  "created_at": "2026-11-03T03:10:33.3288758Z",
+  "base_commit": "ec3e622e20408b0ea797662699da010f1349ae4e",
+  "objective": "Corrigir invalidacao indevida da propriedade dos componentes ao reler o boot salvo",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "sha256_normalized_utf8_lf": "d47e279d9dfe29ef6bfc372cb3f348c43a609c71e9c8ef49ab6f4f4211e5b552",
+      "path": "Bridge-Environment.ps1"
+    }
+  ],
+  "changes": [
+    "Comparar boot por ticks UTC, preservando os demais comportamentos"
+  ],
+  "must_preserve": [
+    "Estado real atual do painel e backup, sem reconstruir identidades perdidas",
+    "Java e servidor preexistentes, controlador e bots atuais",
+    "Configuracoes, credenciais, gameplay, painel e sincronizador"
+  ],
+  "dependencies": [],
+  "tests_performed": [
+    "Mesmo boot preserva owner, controlador e identidade do cliente",
+    "Salvar e reler novamente preserva propriedade e parada solicitada",
+    "Mesmo instante com outro offset preserva propriedade",
+    "Outro boot invalida propriedade sem assumir processos",
+    "Boot invalido bloqueia leitura em vez de assumir processos"
+  ],
+  "tests_pending": [
+    "Encerrar controlador atual mediante aprovacao propria",
+    "Repetir ciclo novo de inicio/parada pelo painel e conferir propriedade persistida",
+    "Confirmar fluxo automatico no proximo login normal"
+  ],
+  "relates_to": [
+    "TB-20261103T020722Z-E7DF76B7"
+  ]
+}
