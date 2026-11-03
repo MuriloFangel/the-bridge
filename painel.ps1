@@ -1,362 +1,77 @@
-# =====================================================================
-#  MINECRAFT SERVER LAUNCHER & CONTROLLER (GUI WINDOWS FORMS)
-# =====================================================================
+# Bridge-Delivery-ID: TB-20261103T020722Z-E7DF76B7
+# Bridge-Base-Commit: 7a523837c6c38f48fd61662fa5dfda09adc0d58b
+#requires -Version 7.2
+[CmdletBinding()]
+param([string]$ProjectPath='F:\srv\vibecoding',[switch]$AutoStart,[switch]$SelfTest,[switch]$ReplaceLegacyPanel,[string]$InspectionReceipt='')
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-
-[System.Windows.Forms.Application]::EnableVisualStyles()
-
-$ConfigFile = Join-Path $PSScriptRoot "painel_config.json"
-
-$DefaultJvmFlags = "-noverify -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dfile.encoding=UTF-8"
-
-$Config = [ordered]@{
-    JarName      = "server.jar"
-    JavaPath     = "java"
-    MinRam       = "2G"
-    MaxRam       = "4G"
-    CustomArgs   = $DefaultJvmFlags
-    ServerArgs   = ""
-    AutoRestart  = $false
+. (Join-Path $PSScriptRoot 'Bridge-Environment.ps1')
+if(-not $SelfTest -and [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'Painel requer sessao interativa; use start.bat no desktop ou o atalho de login'}
+$script:legacyClosed=$false;$script:legacyConfigEquivalent=$true
+if($ReplaceLegacyPanel -and -not $SelfTest){
+ $legacyPath=Join-Path $ProjectPath 'painel.ps1';$pattern='(?i)-File\s+"?'+[regex]::Escape($legacyPath)+'"?(\s|$)'
+ $legacy=@(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {$_.SessionId -eq [Diagnostics.Process]::GetCurrentProcess().SessionId -and $_.CommandLine -match $pattern})
+ if($legacy.Count -gt 1){throw 'Mais de uma janela legada; nenhuma foi fechada'}
+ if($legacy.Count -eq 1){
+  $entry=$legacy[0];$process=Get-Process -Id $entry.ProcessId -ErrorAction Stop
+  if($process.MainWindowTitle -cne 'Minecraft Server Launcher'){throw 'Titulo da janela legada inesperado; nao fechar'}
+  $config=Join-Path $ProjectPath 'painel_config.json';$before=[IO.File]::ReadAllText($config) | ConvertFrom-Json -AsHashtable
+  $again=Get-CimInstance Win32_Process -Filter ('ProcessId='+$entry.ProcessId)
+  if($again.CreationDate -ne $entry.CreationDate -or $again.CommandLine -cne $entry.CommandLine){throw 'Identidade legada mudou'}
+  if(-not $process.CloseMainWindow() -or -not $process.WaitForExit(10000)){throw 'Janela antiga nao encerrou normalmente; nenhum processo foi forcado'}
+  $after=[IO.File]::ReadAllText($config) | ConvertFrom-Json -AsHashtable
+  $keys=@(@($before.Keys)+@($after.Keys) | Sort-Object -Unique)
+  $different=@($keys | Where-Object {($before[$_] | ConvertTo-Json -Depth 8 -Compress) -cne ($after[$_] | ConvertTo-Json -Depth 8 -Compress)})
+  if($different.Count){throw ('Configuracao mudou ao fechar a GUI antiga; nao restaurei por cima: '+($different -join ', '))}
+  $script:legacyClosed=$true
+ }
 }
-
-if (Test-Path $ConfigFile) {
-    try {
-        $Loaded = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        foreach ($prop in $Loaded.PSObject.Properties) {
-            $Config[$prop.Name] = $prop.Value
-        }
-    } catch {}
+[Windows.Forms.Application]::EnableVisualStyles()
+$form=[Windows.Forms.Form]::new();$form.Text='The Bridge - Ambiente';$form.Size=[Drawing.Size]::new(660,490);$form.StartPosition='CenterScreen';$form.Font=[Drawing.Font]::new('Segoe UI',10);$form.FormBorderStyle='FixedDialog';$form.MaximizeBox=$false
+$title=[Windows.Forms.Label]::new();$title.Text='The Bridge | inicio e encerramento';$title.SetBounds(20,15,600,28);$form.Controls.Add($title)
+$count=[Windows.Forms.Label]::new();$count.SetBounds(20,48,600,28);$form.Controls.Add($count)
+$log=[Windows.Forms.TextBox]::new();$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(20,175,600,250);$form.Controls.Add($log)
+$existing=[Windows.Forms.CheckBox]::new();$existing.Text='Incluir servidor preexistente no encerramento (stop normal)';$existing.SetBounds(20,140,600,28);$form.Controls.Add($existing)
+$buttons=@{};$labels=@{Start='Iniciar ambiente';Cancel='Cancelar nesta sessao';Stop='Encerrar ambiente';Status='Atualizar estado';Recover='Recuperar ponte'};$i=0
+foreach($name in @('Start','Cancel','Stop','Status','Recover')){$b=[Windows.Forms.Button]::new();$b.Text=$labels[$name];$b.Tag=$name;$b.SetBounds((20+($i%3)*200),(80+[math]::Floor($i/3)*30),190,28);$form.Controls.Add($b);$buttons[$name]=$b;$i++}
+$script:pending=$null;$script:cancelled=(-not $AutoStart);$script:clock=[Diagnostics.Stopwatch]::new();$script:closeAfter=$false;$script:allowClose=$false
+function Start-PanelOperation([string]$Action){
+ if($script:pending){return};$script:cancelled=$true;$buttons.Cancel.Enabled=$false;$include=$existing.Checked
+ $runspace=[runspacefactory]::CreateRunspace();$runspace.ApartmentState='STA';$runspace.ThreadOptions='ReuseThread';$runspace.Open();$ps=[PowerShell]::Create();$ps.Runspace=$runspace
+ $work={param($module,$root,$action,$include) . $module;$state=Read-BridgePanelState $root
+ try{switch($action){'Start'{$r=Start-BridgeEnvironment -Root $root -State $state};'Stop'{$r=Stop-BridgeEnvironment -Root $root -State $state -IncludeExistingServer $include};'Status'{$s=Invoke-BridgeLocalTool 'get_status' @{};$r=@{messages=@('Servidor na porta: '+$s.server_listening,'Java da ponte: '+$s.java_owned,'Bots da ponte: '+$s.bots_owned)}};'Recover'{$r=Invoke-BridgePanelRecovery};default{throw 'Acao invalida'}};return $r}catch{return @{messages=@('Operacao interrompida: '+$_.Exception.Message);failed=$true}}finally{Save-BridgePanelState $root $state}}
+ [void]$ps.AddScript($work.ToString()).AddArgument((Join-Path $PSScriptRoot 'Bridge-Environment.ps1')).AddArgument($ProjectPath).AddArgument($Action).AddArgument($include)
+ $script:pending=@{ps=$ps;runspace=$runspace;handle=$ps.BeginInvoke();action=$Action};$log.AppendText("Operacao: $Action`r`n")
 }
-
-function Save-AppConfig {
-    $Config.JarName     = $ComboJar.Text
-    $Config.JavaPath    = $TxtJava.Text
-    $Config.MinRam      = $TxtMinRam.Text
-    $Config.MaxRam      = $TxtMaxRam.Text
-    $Config.AutoRestart = $ChkRestart.Checked
-    $Config | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
-}
-
-# --- JANELA PRINCIPAL ---
-$Form = New-Object System.Windows.Forms.Form
-$Form.Text = "Minecraft Server Launcher"
-$Form.Size = New-Object System.Drawing.Size(520, 520)
-$Form.StartPosition = "CenterScreen"
-$Form.FormBorderStyle = "FixedDialog"
-$Form.MaximizeBox = $false
-$Form.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 30)
-$Form.ForeColor = [System.Drawing.Color]::White
-$FontRegular = New-Object System.Drawing.Font("Segoe UI", 9.5)
-$FontBold = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$FontTitle = New-Object System.Drawing.Font("Segoe UI", 13, [System.Drawing.FontStyle]::Bold)
-$Form.Font = $FontRegular
-
-$LblTitle = New-Object System.Windows.Forms.Label
-$LblTitle.Text = "Painel de Controle do Servidor"
-$LblTitle.Font = $FontTitle
-$LblTitle.ForeColor = [System.Drawing.Color]::FromArgb(0, 210, 255)
-$LblTitle.Location = New-Object System.Drawing.Point(25, 20)
-$LblTitle.Size = New-Object System.Drawing.Size(460, 30)
-$Form.Controls.Add($LblTitle)
-
-$Grp = New-Object System.Windows.Forms.GroupBox
-$Grp.Text = " Configuracoes Principais "
-$Grp.ForeColor = [System.Drawing.Color]::FromArgb(180, 180, 185)
-$Grp.Location = New-Object System.Drawing.Point(25, 60)
-$Grp.Size = New-Object System.Drawing.Size(455, 215)
-$Form.Controls.Add($Grp)
-
-# JAR
-$LblJar = New-Object System.Windows.Forms.Label
-$LblJar.Text = "Arquivo Executavel (.jar):"
-$LblJar.Location = New-Object System.Drawing.Point(18, 26)
-$LblJar.Size = New-Object System.Drawing.Size(180, 18)
-$LblJar.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($LblJar)
-
-$ComboJar = New-Object System.Windows.Forms.ComboBox
-$ComboJar.Location = New-Object System.Drawing.Point(18, 46)
-$ComboJar.Size = New-Object System.Drawing.Size(325, 26)
-$ComboJar.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-$ComboJar.ForeColor = [System.Drawing.Color]::White
-$ComboJar.FlatStyle = "Flat"
-$Jars = Get-ChildItem -Path $PSScriptRoot -Filter "*.jar" -File
-foreach ($j in $Jars) { [void]$ComboJar.Items.Add($j.Name) }
-if ($ComboJar.Items.Contains($Config.JarName)) {
-    $ComboJar.SelectedItem = $Config.JarName
-} else {
-    $ComboJar.Text = $Config.JarName
-}
-$Grp.Controls.Add($ComboJar)
-
-$BtnSearchJar = New-Object System.Windows.Forms.Button
-$BtnSearchJar.Text = "Procurar..."
-$BtnSearchJar.Location = New-Object System.Drawing.Point(350, 45)
-$BtnSearchJar.Size = New-Object System.Drawing.Size(85, 27)
-$BtnSearchJar.BackColor = [System.Drawing.Color]::FromArgb(58, 58, 60)
-$BtnSearchJar.ForeColor = [System.Drawing.Color]::White
-$BtnSearchJar.FlatStyle = "Flat"
-$BtnSearchJar.Add_Click({
-    $OFD = New-Object System.Windows.Forms.OpenFileDialog
-    $OFD.Filter = "Arquivos JAR (*.jar)|*.jar"
-    $OFD.InitialDirectory = $PSScriptRoot
-    if ($OFD.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $ComboJar.Text = [System.IO.Path]::GetFileName($OFD.FileName)
-    }
+$buttons.Cancel.Add_Click({$script:cancelled=$true;$count.Text='Inicio automatico cancelado nesta sessao. Nenhum novo componente sera iniciado.'})
+$buttons.Start.Add_Click({if([Windows.Forms.MessageBox]::Show('Iniciar servidor se necessario, aguardar prontidao, iniciar controlador conforme a configuracao local, CMPack e pastas?','Iniciar ambiente','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Start'}})
+$buttons.Stop.Add_Click({if([Windows.Forms.MessageBox]::Show(('Encerrar componentes iniciados pelo ambiente? Incluir servidor preexistente: '+$existing.Checked+'. Nao havera finalizacao forcada.'),'Encerrar ambiente','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Stop'}})
+$buttons.Status.Add_Click({Start-PanelOperation 'Status'})
+$buttons.Recover.Add_Click({if([Windows.Forms.MessageBox]::Show('Solicitar reinicio somente do agente, com guardas, ou iniciar a tarefa existente se estiver parada? Nao sera encerrada a arvore de processos.','Recuperar ponte','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Recover'}})
+$timer=[Windows.Forms.Timer]::new();$timer.Interval=200
+$timer.Add_Tick({
+ if($script:pending -and $script:pending.handle.IsCompleted){$p=$script:pending;try{$r=@($p.ps.EndInvoke($p.handle));foreach($x in $r){foreach($m in @($x.messages)){$log.AppendText([string]$m+"`r`n")};if($x.failed -or $x.pending){$script:closeAfter=$false}};if($p.ps.HadErrors){$log.AppendText("Falha interna; consulte estado antes de repetir.`r`n");$script:closeAfter=$false}}catch{$log.AppendText("Falha de operacao; nao houve repeticao automatica.`r`n");$script:closeAfter=$false}finally{$p.ps.Dispose();$p.runspace.Dispose();$script:pending=$null}
+ if($script:closeAfter){$script:closeAfter=$false;$script:allowClose=$true;$form.Close();return}}
+ foreach($name in @('Start','Stop','Status','Recover')){$buttons[$name].Enabled=($null -eq $script:pending)}
+ if(-not $script:cancelled){$remaining=[math]::Max(0,[math]::Ceiling(30-$script:clock.Elapsed.TotalSeconds));$count.Text="Inicio automatico em $remaining segundos. Cancelar nao fecha o painel.";if((Get-BridgeCountdownAction $script:clock.Elapsed.TotalSeconds $script:cancelled ($null -ne $script:pending)) -eq 'START'){$script:cancelled=$true;Start-PanelOperation 'Start'}}
 })
-$Grp.Controls.Add($BtnSearchJar)
-
-# JAVA
-$LblJava = New-Object System.Windows.Forms.Label
-$LblJava.Text = "Executavel Java (java.exe):"
-$LblJava.Location = New-Object System.Drawing.Point(18, 82)
-$LblJava.Size = New-Object System.Drawing.Size(200, 18)
-$LblJava.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($LblJava)
-
-$TxtJava = New-Object System.Windows.Forms.TextBox
-$TxtJava.Text = $Config.JavaPath
-$TxtJava.Location = New-Object System.Drawing.Point(18, 102)
-$TxtJava.Size = New-Object System.Drawing.Size(325, 26)
-$TxtJava.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-$TxtJava.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($TxtJava)
-
-$BtnSearchJava = New-Object System.Windows.Forms.Button
-$BtnSearchJava.Text = "Procurar..."
-$BtnSearchJava.Location = New-Object System.Drawing.Point(350, 101)
-$BtnSearchJava.Size = New-Object System.Drawing.Size(85, 27)
-$BtnSearchJava.BackColor = [System.Drawing.Color]::FromArgb(58, 58, 60)
-$BtnSearchJava.ForeColor = [System.Drawing.Color]::White
-$BtnSearchJava.FlatStyle = "Flat"
-$BtnSearchJava.Add_Click({
-    $OFD = New-Object System.Windows.Forms.OpenFileDialog
-    $OFD.Filter = "Java Executavel (java.exe)|java.exe|Todos os Arquivos (*.*)|*.*"
-    if ($OFD.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $TxtJava.Text = $OFD.FileName
-    }
+$form.Add_Shown({$script:clock.Start();$timer.Start();if($script:cancelled){$count.Text='Modo manual. Nenhum componente sera iniciado sem sua acao.'}})
+$form.Add_FormClosing({param($sender,$event)
+ if($script:allowClose){return};if($script:pending){$event.Cancel=$true;[void][Windows.Forms.MessageBox]::Show('Aguarde a operacao terminar; nao interromper o controle no meio.');return}
+ $script:cancelled=$true;$choice=[Windows.Forms.MessageBox]::Show('Sim: solicitar encerramento. Nao: fechar apenas o painel e preservar componentes. Cancelar: continuar aqui.','Fechar painel','YesNoCancel','Question')
+ if($choice -eq 'Cancel'){$event.Cancel=$true}elseif($choice -eq 'Yes'){$event.Cancel=$true;$script:closeAfter=$true;Start-PanelOperation 'Stop'}else{$timer.Stop()}
 })
-$Grp.Controls.Add($BtnSearchJava)
-
-# RAM
-$LblRam = New-Object System.Windows.Forms.Label
-$LblRam.Text = "RAM Minima / Maxima:"
-$LblRam.Location = New-Object System.Drawing.Point(18, 138)
-$LblRam.Size = New-Object System.Drawing.Size(180, 18)
-$LblRam.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($LblRam)
-
-$TxtMinRam = New-Object System.Windows.Forms.TextBox
-$TxtMinRam.Text = $Config.MinRam
-$TxtMinRam.Location = New-Object System.Drawing.Point(18, 158)
-$TxtMinRam.Size = New-Object System.Drawing.Size(70, 26)
-$TxtMinRam.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-$TxtMinRam.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($TxtMinRam)
-
-$LblDiv = New-Object System.Windows.Forms.Label
-$LblDiv.Text = "/"
-$LblDiv.Location = New-Object System.Drawing.Point(92, 160)
-$LblDiv.Size = New-Object System.Drawing.Size(15, 20)
-$LblDiv.ForeColor = [System.Drawing.Color]::Gray
-$Grp.Controls.Add($LblDiv)
-
-$TxtMaxRam = New-Object System.Windows.Forms.TextBox
-$TxtMaxRam.Text = $Config.MaxRam
-$TxtMaxRam.Location = New-Object System.Drawing.Point(110, 158)
-$TxtMaxRam.Size = New-Object System.Drawing.Size(70, 26)
-$TxtMaxRam.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-$TxtMaxRam.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($TxtMaxRam)
-
-# AUTO RESTART
-$ChkRestart = New-Object System.Windows.Forms.CheckBox
-$ChkRestart.Text = "Reiniciar se cair"
-$ChkRestart.Checked = [bool]$Config.AutoRestart
-$ChkRestart.Location = New-Object System.Drawing.Point(205, 159)
-$ChkRestart.Size = New-Object System.Drawing.Size(130, 24)
-$ChkRestart.ForeColor = [System.Drawing.Color]::White
-$Grp.Controls.Add($ChkRestart)
-
-# BOTAO EDITAR ARGUMENTOS (ABRE SEGUNDA JANELA)
-$BtnEditArgs = New-Object System.Windows.Forms.Button
-$BtnEditArgs.Text = "Configurar Argumentos JVM..."
-$BtnEditArgs.Location = New-Object System.Drawing.Point(25, 290)
-$BtnEditArgs.Size = New-Object System.Drawing.Size(455, 36)
-$BtnEditArgs.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 54)
-$BtnEditArgs.ForeColor = [System.Drawing.Color]::FromArgb(0, 210, 255)
-$BtnEditArgs.FlatStyle = "Flat"
-$BtnEditArgs.Cursor = [System.Windows.Forms.Cursors]::Hand
-$BtnEditArgs.Add_Click({
-    $ArgForm = New-Object System.Windows.Forms.Form
-    $ArgForm.Text = "Editar Parametros de Inicializacao"
-    $ArgForm.Size = New-Object System.Drawing.Size(560, 420)
-    $ArgForm.StartPosition = "CenterParent"
-    $ArgForm.FormBorderStyle = "FixedDialog"
-    $ArgForm.MaximizeBox = $false
-    $ArgForm.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 30)
-    $ArgForm.ForeColor = [System.Drawing.Color]::White
-    $ArgForm.Font = $FontRegular
-
-    $LblJvmDesc = New-Object System.Windows.Forms.Label
-    $LblJvmDesc.Text = "Argumentos da JVM (Flags de GC, encoding, etc. passados antes do -jar):"
-    $LblJvmDesc.Location = New-Object System.Drawing.Point(20, 15)
-    $LblJvmDesc.Size = New-Object System.Drawing.Size(500, 20)
-    $LblJvmDesc.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 200)
-    $ArgForm.Controls.Add($LblJvmDesc)
-
-    $TxtCustomArgs = New-Object System.Windows.Forms.TextBox
-    $TxtCustomArgs.Multiline = $true
-    $TxtCustomArgs.ScrollBars = "Vertical"
-    $TxtCustomArgs.Text = $Config.CustomArgs
-    $TxtCustomArgs.Location = New-Object System.Drawing.Point(20, 38)
-    $TxtCustomArgs.Size = New-Object System.Drawing.Size(505, 120)
-    $TxtCustomArgs.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-    $TxtCustomArgs.ForeColor = [System.Drawing.Color]::White
-    $ArgForm.Controls.Add($TxtCustomArgs)
-
-    $LblSrvDesc = New-Object System.Windows.Forms.Label
-    $LblSrvDesc.Text = "Argumentos do Servidor (passados depois do -jar, ex: -o false):"
-    $LblSrvDesc.Location = New-Object System.Drawing.Point(20, 172)
-    $LblSrvDesc.Size = New-Object System.Drawing.Size(500, 20)
-    $LblSrvDesc.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 200)
-    $ArgForm.Controls.Add($LblSrvDesc)
-
-    $TxtServerArgs = New-Object System.Windows.Forms.TextBox
-    $TxtServerArgs.Text = $Config.ServerArgs
-    $TxtServerArgs.Location = New-Object System.Drawing.Point(20, 195)
-    $TxtServerArgs.Size = New-Object System.Drawing.Size(505, 26)
-    $TxtServerArgs.BackColor = [System.Drawing.Color]::FromArgb(44, 44, 46)
-    $TxtServerArgs.ForeColor = [System.Drawing.Color]::White
-    $ArgForm.Controls.Add($TxtServerArgs)
-
-    $BtnResetDefault = New-Object System.Windows.Forms.Button
-    $BtnResetDefault.Text = "Restaurar Padrao"
-    $BtnResetDefault.Location = New-Object System.Drawing.Point(20, 325)
-    $BtnResetDefault.Size = New-Object System.Drawing.Size(160, 36)
-    $BtnResetDefault.BackColor = [System.Drawing.Color]::FromArgb(58, 58, 60)
-    $BtnResetDefault.ForeColor = [System.Drawing.Color]::White
-    $BtnResetDefault.FlatStyle = "Flat"
-    $BtnResetDefault.Add_Click({
-        $TxtCustomArgs.Text = $DefaultJvmFlags
-        $TxtServerArgs.Text = ""
-    })
-    $ArgForm.Controls.Add($BtnResetDefault)
-
-    $BtnSaveArgs = New-Object System.Windows.Forms.Button
-    $BtnSaveArgs.Text = "Salvar e Fechar"
-    $BtnSaveArgs.Font = $FontBold
-    $BtnSaveArgs.Location = New-Object System.Drawing.Point(365, 325)
-    $BtnSaveArgs.Size = New-Object System.Drawing.Size(160, 36)
-    $BtnSaveArgs.BackColor = [System.Drawing.Color]::FromArgb(0, 160, 110)
-    $BtnSaveArgs.ForeColor = [System.Drawing.Color]::White
-    $BtnSaveArgs.FlatStyle = "Flat"
-    $BtnSaveArgs.Add_Click({
-        $Config.CustomArgs = $TxtCustomArgs.Text.Trim()
-        $Config.ServerArgs = $TxtServerArgs.Text.Trim()
-        Save-AppConfig
-        $ArgForm.Close()
-    })
-    $ArgForm.Controls.Add($BtnSaveArgs)
-
-    [void]$ArgForm.ShowDialog()
+$form.Add_Shown({
+ if($InspectionReceipt){
+  $file=[IO.Path]::GetFullPath($InspectionReceipt);$allowed='F:\srv\TheBridge-Remote-v2\backups\'
+  if(-not $file.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($file) -cne 'panel-visible.json'){throw 'Destino de evidencia recusado'}
+  if(-not(Test-Path -LiteralPath $file)){
+   $proof=@{session_id=[Diagnostics.Process]::GetCurrentProcess().SessionId;pid=$PID;visible=$form.Visible;window_handle=$form.Handle.ToInt64();title=$form.Text;auto_start=[bool]$AutoStart;legacy_closed=$script:legacyClosed;config_semantically_preserved=$script:legacyConfigEquivalent;utc=[DateTime]::UtcNow.ToString('o')}
+   $bytes=[Text.UTF8Encoding]::new($false).GetBytes(($proof | ConvertTo-Json -Depth 5 -EscapeHandling EscapeNonAscii));$stream=[IO.File]::Open($file,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
+   try{$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
+  }
+ }
 })
-$Form.Controls.Add($BtnEditArgs)
-
-# BOTÃO INICIAR SERVIDOR
-$BtnStart = New-Object System.Windows.Forms.Button
-$BtnStart.Text = "[>] INICIAR SERVIDOR"
-$BtnStart.Font = $FontBold
-$BtnStart.Location = New-Object System.Drawing.Point(25, 340)
-$BtnStart.Size = New-Object System.Drawing.Size(455, 48)
-$BtnStart.BackColor = [System.Drawing.Color]::FromArgb(0, 160, 110)
-$BtnStart.ForeColor = [System.Drawing.Color]::White
-$BtnStart.FlatStyle = "Flat"
-$BtnStart.Cursor = [System.Windows.Forms.Cursors]::Hand
-$BtnStart.Add_Click({
-    Save-AppConfig
-
-    $RawJava = $Config.JavaPath.Trim()
-    $JavaCmd = if ($RawJava -match '\\\\|/' -or $RawJava.EndsWith(".exe")) {
-        "`"$RawJava`""
-    } else {
-        $RawJava
-    }
-
-    $RunnerBat = Join-Path $PSScriptRoot ".run_server.bat"
-    $RestartLoop = if ($Config.AutoRestart) {
-        "@echo Servidor caiu! Reiniciando em 5 segundos... & timeout /t 5 & goto INICIO"
-    } else {
-        "@echo. & @echo Servidor encerrado. Pressione qualquer tecla para fechar... & pause > nul"
-    }
-
-    $JvmFlags = $Config.CustomArgs
-    $SrvFlags = $Config.ServerArgs
-
-    $BatContent = @"
-@echo off
-chcp 65001 > nul
-title Console Minecraft - $($Config.JarName)
-:INICIO
-cls
-echo ========================================================
-echo   MINECRAFT SERVER CONSOLE - $($Config.JarName)
-echo   Memoria: $($Config.MinRam) - $($Config.MaxRam)
-echo ========================================================
-echo.
-$JavaCmd -Xms$($Config.MinRam) -Xmx$($Config.MaxRam) $JvmFlags -jar "$($Config.JarName)" $SrvFlags
-$RestartLoop
-"@
-    Set-Content -Path $RunnerBat -Value $BatContent -Encoding ASCII
-
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$RunnerBat`""
-})
-$Form.Controls.Add($BtnStart)
-
-# BOTÃO LIMPAR LOGS
-$BtnClean = New-Object System.Windows.Forms.Button
-$BtnClean.Text = "Limpar Logs Antigos"
-$BtnClean.Location = New-Object System.Drawing.Point(25, 405)
-$BtnClean.Size = New-Object System.Drawing.Size(220, 36)
-$BtnClean.BackColor = [System.Drawing.Color]::FromArgb(58, 58, 60)
-$BtnClean.ForeColor = [System.Drawing.Color]::White
-$BtnClean.FlatStyle = "Flat"
-$BtnClean.Cursor = [System.Windows.Forms.Cursors]::Hand
-$BtnClean.Add_Click({
-    $LogsDir = Join-Path $PSScriptRoot "logs"
-    $CrashesDir = Join-Path $PSScriptRoot "crash-reports"
-    $Count = 0
-    if (Test-Path $LogsDir) {
-        $Files = Get-ChildItem -Path $LogsDir -Filter "*.log.gz" -File
-        $Count += $Files.Count
-        $Files | Remove-Item -Force
-    }
-    if (Test-Path $CrashesDir) {
-        $Crashes = Get-ChildItem -Path $CrashesDir -File
-        $Count += $Crashes.Count
-        $Crashes | Remove-Item -Force
-    }
-    [System.Windows.Forms.MessageBox]::Show("$Count arquivos de log e crash removidos!", "Limpeza Concluida", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-})
-$Form.Controls.Add($BtnClean)
-
-# BOTÃO ABRIR PASTA DO SERVIDOR
-$BtnFolder = New-Object System.Windows.Forms.Button
-$BtnFolder.Text = "Abrir Pasta Raiz"
-$BtnFolder.Location = New-Object System.Drawing.Point(260, 405)
-$BtnFolder.Size = New-Object System.Drawing.Size(220, 36)
-$BtnFolder.BackColor = [System.Drawing.Color]::FromArgb(58, 58, 60)
-$BtnFolder.ForeColor = [System.Drawing.Color]::White
-$BtnFolder.FlatStyle = "Flat"
-$BtnFolder.Cursor = [System.Windows.Forms.Cursors]::Hand
-$BtnFolder.Add_Click({
-    Start-Process explorer.exe -ArgumentList $PSScriptRoot
-})
-$Form.Controls.Add($BtnFolder)
-
-$Form.Add_FormClosing({
-    Save-AppConfig
-})
-
-[void]$Form.ShowDialog()
+if($SelfTest){if($buttons.Count -ne 5 -or $timer.Interval -ne 200){throw 'Estrutura da GUI invalida'};$timer.Dispose();$form.Dispose();[pscustomobject]@{gui_constructed=$true;buttons=5;components_started=$false} | ConvertTo-Json -Compress;return}
+$mutex=[Threading.Mutex]::new($false,'Local\TheBridgeEnvironmentPanel');$owned=$false
+try{try{$owned=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$owned=$true};if(-not $owned){return};[void]$form.ShowDialog()}finally{$timer.Dispose();$form.Dispose();if($owned){$mutex.ReleaseMutex()};$mutex.Dispose()}

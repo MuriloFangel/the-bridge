@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T020722Z-E7DF76B7",
+  "status": "GERADA",
+  "created_at": "2026-11-03T02:07:22.5095972Z",
+  "base_commit": "7a523837c6c38f48fd61662fa5dfda09adc0d58b",
+  "objective": "Instalar painel interativo e operacao de ambiente da entrega 2, preservando ponte e gameplay",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "sha256_normalized_utf8_lf": "be9d78adfd6747114176901b0058f3ad8b938d6c425d6f60e035827cdb59ce47",
+      "path": "Bridge-Environment.ps1"
+    },
+    {
+      "sha256_normalized_utf8_lf": "c3e2ed4faeed52b60ffcce206420d57c1b4316a07fc02943fc2bd7ca0aa31e2e",
+      "path": "painel.ps1"
+    },
+    {
+      "sha256_normalized_utf8_lf": "fa5ff7e5fdc5ae6145c92034fd522fc941773ee71bba00b53f5244bfec3423bc",
+      "path": "start.bat"
+    },
+    {
+      "sha256_normalized_utf8_lf": "7275461d0061374d87fbad40230216a3bb5f24c7ee91f8f71e6dcecc9f244e2f",
+      "path": "AMBIENTE-E-RECUPERACAO.md"
+    }
+  ],
+  "changes": [
+    "Painel separado da sessao 0, modo manual e AutoStart de 30 segundos",
+    "Controle de servidor e bots pela ponte existente, propriedade e paradas normais",
+    "Guia de recuperacao e limitacoes historicas"
+  ],
+  "must_preserve": [
+    "Java, JAR, memoria e flags de painel_config.json",
+    "Scripts .sk e dados do jogo",
+    "Tarefa TheBridge-Remote-v2, supervisor e credenciais privadas",
+    "Sincronizacao e importador da entrega 1"
+  ],
+  "dependencies": [
+    "painel.ps1 e Bridge-Environment.ps1 devem ser instalados juntos"
+  ],
+  "tests_performed": [
+    "Doze verificacoes com substitutos aprovadas no pacote e reconferidas nas funcoes ajustadas",
+    "GUI construida sem exibicao, sem inicio de componentes",
+    "Prontidao rejeita resposta antiga e aceita resposta atual",
+    "Declaracoes Win32 compiladas sem executar operacoes de janela"
+  ],
+  "tests_pending": [
+    "Conferir GUI real na sessao interativa e publicacao remota",
+    "Verificar controles reais mediante aprovacao especifica",
+    "Confirmar abertura automatica no proximo login normal"
+  ],
+  "relates_to": [
+    "TB-20261102T061136Z-1D382738"
+  ]
+}
