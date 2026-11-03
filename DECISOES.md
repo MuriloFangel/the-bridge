@@ -88,3 +88,17 @@ REQUISITO do administrador. Registro documental: não declara implementação, c
 - PENDENTE de definição operacional: enumeração final dos demais comandos bloqueados; mudanças de eleitorado/candidatos por desconexão; alteração de votos; zero votos na eleição; interação entre bloqueio e sucessão automática. Não inventar decisões para esses ramos.
 - PENDENTE: sintaxes finais dos comandos, implementação e testes. Este registro independente de código não altera scripts nem autoriza reload/restart. Propostas não aprovadas sobre filas/partidas não são promovidas a requisitos por este registro.
 <!-- END BRIDGE DOC TB-20261103T044205Z-FB185E98 -->
+
+<!-- BEGIN BRIDGE DOC TB-20261103T045209Z-6E1F3E1E -->
+### 2026-11-03 — Complemento aprovado: políticas das consultas de party
+
+REQUISITO aprovado pelo administrador após TB-20261103T044205Z-FB185E98. Complementa as pendências daquele bloco; não declara implementação, carregamento ou teste.
+
+- Primeiro voto válido é definitivo. Solicitante não recebe SIM automático: precisa votar.
+- Quem desconecta perde elegibilidade e voto naquela consulta. Reconectar não o reinsere nela. Candidato desconectado é retirado; votos nele são anulados com aviso. Se não restar candidato, cancelar a eleição sem substituir a liderança pelo resultado eleitoral.
+- Eleição encerrada sem votos válidos é cancelada; liderança anterior permanece, sujeita às regras normais de ausência. Não eleger com zero votos por antiguidade.
+- Sucessão cujo prazo vence durante consulta fica pendente até seu encerramento, revalidando liderança e presença. Se todos ficarem offline, dissolver imediatamente.
+- Durante consulta ficam disponíveis ajuda, consulta da lista e voto. Ações de alteração da composição, liderança e acesso ficam bloqueadas, incluindo expulsão, transferência/adição de líder, nova proposta, convite/aceite/troca/entrada pública, publicidade, saída voluntária e dissolução por comando. Desconexão real não é bloqueável.
+
+Ainda não constitui evidência de aplicação de código. Votações da party não compartilham estado nem executam resultados das votações de partida. Implementação, carregamento e testes permanecem estados separados.
+<!-- END BRIDGE DOC TB-20261103T045209Z-6E1F3E1E -->
