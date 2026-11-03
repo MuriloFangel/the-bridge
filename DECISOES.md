@@ -45,3 +45,46 @@ Manifestos/registros/propostas documentais vão diretamente para ai-deliveries a
 
 Testes de gameplay ficam para o administrador ao final dos fechamentos; carregamento não é gameplay validado. Flechas atravessarem aliados continuam pendentes. A edição da fonte canônica PROMPT-NOVO-CHAT.md e sua reprodução no README ainda está pendente do fluxo de gestão; este registro não afirma alteração desses arquivos.
 <!-- END BRIDGE DOC TB-20261102T064922Z-06ED614E -->
+
+<!-- BEGIN BRIDGE DOC TB-20261103T044205Z-FB185E98 -->
+### 2026-11-03 — Decisões de party anteriores à implementação
+
+REQUISITO do administrador. Registro documental: não declara implementação, carregamento ou teste. Prioridade: party antes do modo de times; R1/R2 continuam pendentes. Não antecipar 2v2, party vs party, split, equilíbrio, redistribuição ou cages dinâmicas. Preservar gameplay e separar estado de votos da party dos votos da partida.
+
+#### Vínculos e liderança
+- Um jogador não integra duas parties. Membro offline mantém vínculo enquanto o grupo existir; reconexão não altera antiguidade, definida pela ordem de entrada.
+- Se todos ficarem offline, dissolver e apagar a party e seus vínculos/processos. Preservar dados em reinício/reload, sem confundir recuperação técnica com saídas voluntárias para apagar todos os grupos. Party de uma pessoa é válida; sem membros, apagar.
+- Líder desconectado tem 30s para retornar; retornando antes mantém liderança, salvo mudança válida concluída. Após substituição, retorna como membro comum. Nova desconexão inicia nova espera; timer invalidado não pode executar sucessão depois nem afetar outra party.
+- Havendo outro líder conectado, após 30s retirar apenas a liderança do ausente, sem preencher vaga automaticamente. Quando não restar líder conectado após as esperas aplicáveis, assumir o integrante mais antigo conectado.
+- Saída voluntária de líder não espera 30s: sucessão imediata pelo mais antigo conectado quando necessária, preservando os demais líderes.
+- Comandos de transferir e adicionar liderança. Até três líderes com os mesmos poderes. Transferência somente para membro online; quem transfere continua como membro comum. Não altera antiguidade.
+- Líder pode dissolver por comando, apagando o grupo e removendo todos, inclusive offline. Pode expulsar membro comum online/offline. Líderes não podem expulsar uns aos outros.
+
+#### Convites, troca e publicidade
+- Convites duram 60s; repetição avisa sem renovar prazo. Pode convidar jogador conectado já em outra party, mas não a si próprio nem jogador offline.
+- Avisar destinatário já vinculado de que aceitar troca sua party. Validar destino antes de remover vínculo anterior; nunca vínculo duplo ou troca parcial.
+- Pode receber convites de vários grupos; aceitar um cancela os demais. Mudança de liderança cancela convites anteriores e avisa membros. Aceite permitido com líder offline se a party existir e não houver bloqueio de votação.
+- Validar novamente estado ao concluir ações simultâneas; mensagens/timers antigos não autorizam entrada em grupo dissolvido ou recriado.
+- Líder pode divulgar no chat, tornando a party pública, com entrada clicável; pode torná-la privada, mantendo convites. Entrada por divulgação estando em outra party exige confirmação explícita da troca. Divulgação antiga perde validade ao privatizar/dissolver.
+- Avisar membros conectados sobre convites emitidos, entradas, saídas, expulsões, liderança, acesso e consultas. Usar mensagens explicativas, cliques, timers e avisos no padrão do projeto.
+
+#### Expulsão e revolução
+- Membro comum pode pedir voto para expulsar outro membro comum; líder não é alvo. Aprovado, expulsa sem consulta/veto do líder. Mudança de comando ocorre pela revolução.
+- Membro comum pode propor revolução. Aprovada, abre eleição que substitui toda liderança; antigos líderes não eleitos ficam como membros comuns.
+- Expulsão e aprovação da revolução: mais SIM que NÃO entre votantes; empate/nenhum voto rejeitam. Não usar metade de cada time.
+- Eleitorado conectado na abertura da consulta; candidatos online na abertura da eleição. Chat com nicks clicáveis para votar, inclusive em si mesmo.
+- Prazo máximo de 30s por consulta/turno; concluir antecipadamente quando matematicamente definido segundo sua política, sem reabrir resultado concluído.
+
+#### Eleição
+- Maioria absoluta: mais da metade dos votos válidos efetivamente dados a candidatos; abstenções fora do denominador. Elege no primeiro turno.
+- Sem maioria absoluta, primeiro e segundo isolados vão ao segundo turno.
+- Empate em primeiro: segundo turno entre empatados em primeiro.
+- Primeiro isolado com empate no segundo: primeiro vence sem segundo turno, por decisão expressa do administrador.
+- Empate após segundo turno: empatados viram líderes. Em qualquer turno, mais de três empatados são limitados a três pela antiguidade. Limite aplicado ao avanço para segundo turno ou aos eleitos finais, sem converter empate inicial em eleição direta; nunca mais de três líderes.
+
+#### Exclusão mútua e pendências
+- Uma consulta por party de cada vez, incluindo turnos. Bloquear ações de alteração da party durante votação; comandos de expulsão explicitamente bloqueados inclusive para líderes. Consulta e voto continuam disponíveis. Parties diferentes não compartilham trava.
+- Desconexão real não pode ser bloqueada; todos offline dissolve e invalida processos.
+- PENDENTE de definição operacional: enumeração final dos demais comandos bloqueados; mudanças de eleitorado/candidatos por desconexão; alteração de votos; zero votos na eleição; interação entre bloqueio e sucessão automática. Não inventar decisões para esses ramos.
+- PENDENTE: sintaxes finais dos comandos, implementação e testes. Este registro independente de código não altera scripts nem autoriza reload/restart. Propostas não aprovadas sobre filas/partidas não são promovidas a requisitos por este registro.
+<!-- END BRIDGE DOC TB-20261103T044205Z-FB185E98 -->
