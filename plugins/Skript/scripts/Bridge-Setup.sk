@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T064126Z-C48C588D
-# Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3
+# Bridge-Delivery-ID: TB-20261103T032724Z-863E7317
+# Bridge-Base-Commit: 1eba74b848bc0f808b713f96d64631c5c920aca2
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -205,7 +205,7 @@ on inventory click with priority lowest:
     if {_inv} is not set:
         stop
     set {_top} to event.getView().getTopInventory()
-    if {_top} is not {_inv}:
+    if {_top}.equals({_inv}) is false:
         stop
     cancel event
     set {_slot} to event.getRawSlot()
@@ -229,7 +229,7 @@ on inventory click with priority lowest:
     if {-bridge::menu::%{_u}%::revision} is not {_revision}:
         stop
     set {_current} to {_p}.getOpenInventory().getTopInventory()
-    if {_current} is not {_inv}:
+    if {_current}.equals({_inv}) is false:
         stop
     set {-bridge::menu::%{_u}%::busy} to false
     bridge_menuAction({_p}, {_slot}, {_click})
@@ -832,7 +832,7 @@ function bridge_menuBind(p: player, inv: object, kind: text, arena: text = "", p
     set {_oldView} to {-bridge::menu::%{_u}%::inventory}
     if {_oldView} is set:
         set {_currentView} to {_p}.getOpenInventory().getTopInventory()
-        if {_currentView} is {_oldView}:
+        if {_currentView}.equals({_oldView}) is true:
             close {_p}'s inventory
     if {-bridge::ui_revision::%{_u}%} is not set:
         set {-bridge::ui_revision::%{_u}%} to 0
@@ -1024,7 +1024,7 @@ on BridgeMenuDragEvent:
     set {_inv} to {-bridge::menu::%{_u}%::inventory}
     if {_inv} is set:
         set {_top} to event.getView().getTopInventory()
-        if {_top} is {_inv}:
+        if {_top}.equals({_inv}) is true:
             event.setCancelled(true)
 
 on inventory close:
@@ -1032,7 +1032,7 @@ on inventory close:
     set {_inv} to {-bridge::menu::%{_u}%::inventory}
     if {_inv} is set:
         set {_closed} to event.getInventory()
-        if {_closed} is {_inv}:
+        if {_closed}.equals({_inv}) is true:
             delete {-bridge::menu::%{_u}%::*}
 
 on quit:

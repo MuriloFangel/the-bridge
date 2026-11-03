@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "delivery_id": "TB-20261103T032637Z-2F21AE71",
+  "status": "GERADA",
+  "created_at": "2026-11-03T03:26:37.7135291Z",
+  "base_commit": "1eba74b848bc0f808b713f96d64631c5c920aca2",
+  "objective": "Corrigir falso desencontro de identidade apos reler horario de criacao do processo",
+  "hash_algorithm": "utf8-lf-no-bom-v1",
+  "files": [
+    {
+      "sha256_normalized_utf8_lf": "7a966e9b7d1c9a9a4ea745b817cc7e5708bfd5be1f7a1c1037c1f3b2547f5415",
+      "path": "Bridge-Environment.ps1"
+    }
+  ],
+  "changes": [
+    "Comparar criacao do processo por ticks UTC, mantendo PID, executavel e guardas de agente"
+  ],
+  "must_preserve": [
+    "Correcao de boot anterior",
+    "Estado salvo atual, sem assumir ou reconstruir processos",
+    "Servidor, bots, CMPack, configuracoes, credenciais e gameplay"
+  ],
+  "dependencies": [],
+  "tests_performed": [
+    "Identidade capturada do proprio diagnostico confere",
+    "Identidade confere apos serializar e reler como DateTime",
+    "Horario de criacao diferente continua recusado",
+    "Executavel diferente continua recusado",
+    "PID inexistente continua recusado",
+    "Identidade ausente continua recusada",
+    "Horario invalido continua recusado",
+    "Mesmo instante com outro offset confere"
+  ],
+  "tests_pending": [
+    "Repetir encerramento pelo painel do ciclo com propriedade salva",
+    "Conferir saida do controlador e preservacao do servidor",
+    "Confirmar fluxo automatico no proximo login normal"
+  ],
+  "relates_to": [
+    "TB-20261103T031033Z-079B25C6"
+  ]
+}

@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T031033Z-079B25C6
-# Bridge-Base-Commit: ec3e622e20408b0ea797662699da010f1349ae4e
+# Bridge-Delivery-ID: TB-20261103T032637Z-2F21AE71
+# Bridge-Base-Commit: 1eba74b848bc0f808b713f96d64631c5c920aca2
 #requires -Version 7.2
 function Invoke-BridgeLocalTool {
  param([string]$Tool,[hashtable]$Arguments=@{})
@@ -36,7 +36,7 @@ function Read-BridgePanelState([string]$Root){
 function Invoke-BridgeIdentity([string]$Mode,$Value){
  try{if($Mode -eq 'Capture'){$p=Get-Process -Id ([int]$Value) -ErrorAction Stop;return @{pid=$p.Id;born=$p.StartTime.ToUniversalTime().ToString('o');exe=$p.MainModule.FileName}}
  if(-not $Value){return $false};$p=Get-Process -Id ([int]$Value.pid) -ErrorAction Stop
- return ($p.StartTime.ToUniversalTime().ToString('o') -ceq $Value.born -and $p.MainModule.FileName -ieq $Value.exe)}catch{return $false}
+ return ($p.StartTime.ToUniversalTime().Ticks -eq ([datetimeoffset]$Value.born).UtcDateTime.Ticks -and $p.MainModule.FileName -ieq $Value.exe)}catch{return $false}
 }
 function Get-BridgeCountdownAction([double]$Elapsed,[bool]$Cancelled,[bool]$Busy){if($Cancelled){return 'CANCELLED'};if($Busy){return 'WAIT'};if($Elapsed -ge 30){return 'START'};return 'WAIT'}
 function Initialize-BridgeWindowTags {
