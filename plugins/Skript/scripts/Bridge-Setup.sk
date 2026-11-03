@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T035753Z-349DB512
-# Bridge-Base-Commit: c0617a89f050d534d37dcf31ac77c10fa95bb441
+# Bridge-Delivery-ID: TB-20261103T040604Z-152E6E1C
+# Bridge-Base-Commit: df2b35a118cd24771139b7ebb186d8f47b2f6187
 # ==================================================================
 # THE BRIDGE - SISTEMA DE SETUP, LIMITES E GERENCIADOR (ETAPA 0)
 # ==================================================================
@@ -1079,8 +1079,38 @@ function bridge_legacyMenu(inv: object) :: boolean:
 on load:
     wait 1 tick
     # Verificacao pura: nao grava configuracao nem inicia partidas.
-    set {_probeProps::*} to "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "y-void", "gols", "tempo", "limite-ponte", "limite-lateral", "y-max", "y-void", "inexistente", "gols" and "y-void"
-    set {_probeValues::*} to 5, 900, 0, 20, 255, 83, -1, 0, 0, -1, -1, 256, 256, 1, 5.5 and 83.5
+    set {_probeProps::1} to "gols"
+    set {_probeProps::2} to "tempo"
+    set {_probeProps::3} to "limite-ponte"
+    set {_probeProps::4} to "limite-lateral"
+    set {_probeProps::5} to "y-max"
+    set {_probeProps::6} to "y-void"
+    set {_probeProps::7} to "y-void"
+    set {_probeProps::8} to "gols"
+    set {_probeProps::9} to "tempo"
+    set {_probeProps::10} to "limite-ponte"
+    set {_probeProps::11} to "limite-lateral"
+    set {_probeProps::12} to "y-max"
+    set {_probeProps::13} to "y-void"
+    set {_probeProps::14} to "inexistente"
+    set {_probeProps::15} to "gols"
+    set {_probeProps::16} to "y-void"
+    set {_probeValues::1} to 5
+    set {_probeValues::2} to 900
+    set {_probeValues::3} to 0
+    set {_probeValues::4} to 20
+    set {_probeValues::5} to 255
+    set {_probeValues::6} to 83
+    set {_probeValues::7} to -1
+    set {_probeValues::8} to 0
+    set {_probeValues::9} to 0
+    set {_probeValues::10} to -1
+    set {_probeValues::11} to -1
+    set {_probeValues::12} to 256
+    set {_probeValues::13} to 256
+    set {_probeValues::14} to 1
+    set {_probeValues::15} to 5.5
+    set {_probeValues::16} to 83.5
     set {_probeFailures} to 0
     loop {_probeProps::*}:
         set {_index} to loop-index parsed as integer
