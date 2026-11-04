@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T053111Z-3F504FDE
-# Bridge-Base-Commit: ecb022e16184c356f7864fac313af4db0fab347b
+# Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
+# Bridge-Base-Commit: 0de976d1c8b90e9ffb179e034643a577a51c585c
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -305,8 +305,9 @@ function bridge_sidebarReadScores(sb: object, obj: object) :: object:
             set {_score} to {_scores}.next()
             set {_owner} to {_score}.getObjective()
             if {_owner}.getName() is "bridge":
-                set {_value} to {_score}.getScore()
-                {_result}.put({_entry}, {_value})
+                if {_score}.isScoreSet() is true:
+                    set {_value} to {_score}.getScore()
+                    {_result}.put({_entry}, {_value})
     return {_result}
 
 function bridge_sidebarApply(p: player, sb: object, obj: object, actual: object, wanted: object):
@@ -345,12 +346,11 @@ function bridge_sidebarApply(p: player, sb: object, obj: object, actual: object,
         set {_item} to {_desired}.next()
         set {_entry} to {_item}.getKey()
         set {_value} to {_item}.getValue()
-        set {_old} to {_actual}.get({_entry})
-        if {_old} is not set:
-            set {_scoreObj} to {_obj}.getScore({_entry})
+        # O cache não prova que a linha ainda está registrada na board real.
+        set {_scoreObj} to {_obj}.getScore({_entry})
+        if {_scoreObj}.isScoreSet() is false:
             {_scoreObj}.setScore({_value})
-        else if {_old} is not {_value}:
-            set {_scoreObj} to {_obj}.getScore({_entry})
+        else if {_scoreObj}.getScore() is not {_value}:
             {_scoreObj}.setScore({_value})
         {_actual}.put({_entry}, {_value})
     set {-bridge::sidebar::%{_u}%::board} to {_sb}

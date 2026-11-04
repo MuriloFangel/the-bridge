@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
-# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
+# Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
+# Bridge-Base-Commit: 0de976d1c8b90e9ffb179e034643a577a51c585c
 # ================================================================
 # THE BRIDGE - GAMEPLAY / COMBATE, RESPAWN, ITENS E CONSTRUÇÃO
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -10,6 +10,7 @@
 import:
     org.bukkit.util.Vector
     org.bukkit.event.entity.EntityDamageByEntityEvent as BridgeDamageByEntityEvent
+    org.bukkit.event.entity.ProjectileLaunchEvent as BridgeArrowLaunchEvent
 
 on hunger meter change:
     set food level to 20
@@ -155,12 +156,15 @@ on consume of golden apple:
         else:
             send "%{bridge::config::prefix}% &eMaçã consumida &8| &7Vida restaurada; sem nova absorção nesta vida." to player
 
-on shoot with priority highest:
+on BridgeArrowLaunchEvent with priority highest:
     if event.isCancelled() is true:
         stop
-    if shooter is not player:
+    set {_arrow} to event.getEntity()
+    if {_arrow}.getType().name() is not "ARROW":
         stop
-    set {_p} to shooter
+    set {_p} to {_arrow}.getShooter()
+    if {_p} is not a player:
+        stop
     set {_u} to {_p}'s uuid
     set {_inst} to {bridge::player::%{_u}%::instance}
     if {_inst} is not set:
@@ -182,7 +186,6 @@ on shoot with priority highest:
     if {_life} is not set:
         cancel event
         stop
-    set {_arrow} to event.getProjectile()
     set {_id} to {_arrow}.getUniqueId().toString()
     set {-bridge::arrows::%{_id}%::instance} to {_inst}
     set {-bridge::arrows::%{_id}%::match_id} to {_sid}
@@ -363,6 +366,7 @@ on damage with priority highest:
     if {_until} is set:
         if (unix timestamp of now) < {_until}:
             cancel event
+            bridge_spawnProtectionNotice(event, {_v})
             stop
     if damage cause is fall:
         cancel event
@@ -480,3 +484,29 @@ every 10 seconds:
             set {_key} to loop-index
             delete {-bridge::arrows::%{_key}%::*}
             delete {-bridge::arrow_entities::%{_key}%}
+
+
+# Feedback somente para atacante adversário válido; dano continua cancelado.
+function bridge_spawnProtectionNotice(e: object, v: player):
+    if {_e} is not an instance of BridgeDamageByEntityEvent:
+        stop
+    set {_raw} to {_e}.getDamager()
+    if {_raw}.getType().name() is "ARROW":
+        set {_a} to {_raw}.getShooter()
+        if {_a} is not a player:
+            stop
+        set {_inst} to {bridge::player::%{_v}'s uuid%::instance}
+        set {_id} to {_raw}.getUniqueId().toString()
+        if {-bridge::arrows::%{_id}%::instance} is not {_inst}:
+            stop
+        if {-bridge::arrows::%{_id}%::match_id} is not {bridge::instance::%{_inst}%::match_id}:
+            stop
+        if {-bridge::arrows::%{_id}%::shooter} is not {_a}'s uuid:
+            stop
+    else:
+        set {_a} to {_raw}
+        if {_a} is not a player:
+            stop
+    if bridge_combatAllowed({_a}, {_v}) is not true:
+        stop
+    send "%{bridge::config::prefix}% &e%bridge_getFormattedPlayerName({_v})% &eestá protegido após o respawn." to {_a}
