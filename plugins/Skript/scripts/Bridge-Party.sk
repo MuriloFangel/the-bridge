@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T045209Z-6E1F3E1E
-# Bridge-Base-Commit: 3ecfc9af338151c865916dbfc5b4fe408d58b092
+# Bridge-Delivery-ID: TB-20261104T013833Z-F8E33482
+# Bridge-Base-Commit: f62db5e3e75bdb12b73a7e41e38e8017f995b7a0
 # THE BRIDGE - PARTY / GRUPOS, LIDERANCA E CONSULTAS
 # Proposta gerada. Requer Skript 2.6.4-for-1.8 e skript-reflect 2.2.3.
 # Nao altera times, filas ou gameplay. Carregamento/gameplay nao verificados.
@@ -503,6 +503,19 @@ function bridge_partyVoteCast(p: player, id: text, token: text, choice: text):
             stop
     set {bridge::party::%{_id}%::vote::ballots::%{_u}%} to {_choice}
     send "&8[&dParty&8] &aVoto registrado e definitivo." to {_p}
+    set {_shownChoice} to {_choice}
+    if {_choice} is "sim":
+        set {_shownChoice} to "&aSIM"
+    else if {_choice} is "nao":
+        set {_shownChoice} to "&cNÃO"
+    else:
+        set {_shownChoice} to "&b%bridge_partyName({_choice})%"
+    set {_castCount} to 0
+    loop {bridge::party::%{_id}%::vote::electors::*}:
+        if {bridge::party::%{_id}%::vote::ballots::%loop-value%} is set:
+            add 1 to {_castCount}
+    set {_electorCount} to size of {bridge::party::%{_id}%::vote::electors::*}
+    bridge_partyChat({_id}, "&f%name of {_p}% &7votou %{_shownChoice}% &8| &7%{_kind}% &8| &f%{_castCount}%/%{_electorCount}% votos registrados.")
     bridge_partyVoteEvaluate({_id}, false)
 
 function bridge_partyDisconnect(id: text, u: text):
@@ -532,6 +545,7 @@ function bridge_partyHelp(p: player):
     send "&8&m--------------------------------" to {_p}
     send "&d&lPARTY &7- grupos independentes do modo de times" to {_p}
     send "&f/party criar &8| &f/party lista &8| &f/party sair" to {_p}
+    send "&f/p &7é alias de /party. &f/party <nick> &7cria se necessário e convida." to {_p}
     send "&f/party convidar <nick> &7- líder; convite de 60s" to {_p}
     send "&f/party transferir <nick> &7- transfere sua liderança, sem sair" to {_p}
     send "&f/party adicionarlider <nick> &7- até três líderes online" to {_p}
@@ -546,6 +560,7 @@ function bridge_partyHelp(p: player):
     send "&7Esta versão não puxa integrantes para fila/partida." to {_p}
 
 command /party [<text>] [<text>] [<text>]:
+    aliases: /p
     executable by: players
     trigger:
         if {-bridge::party_ready} is not true:
@@ -575,6 +590,22 @@ command /party [<text>] [<text>] [<text>]:
             stop
         if bridge_partyBlocked({_id}, player) is true:
             stop
+        # Atalho de convite somente para nick online, sem interceptar subcomandos.
+        set {_reserved::*} to "criar", "aceitar", "entrar", "confirmar", "sair", "revolucao", "votarexpulsao", "convidar", "dissolver", "divulgar", "privada", "expulsar", "transferir" and "adicionarlider"
+        if {_reserved::*} does not contain {_action}:
+            if arg-2 is not set:
+                set {_inviteTarget} to BridgePartyBukkit.getPlayerExact(arg-1)
+                if {_inviteTarget} is set:
+                    set {_targetUUID} to {_inviteTarget}.getUniqueId().toString()
+                    if {_targetUUID} is {_u}:
+                        send "&8[&dParty&8] &cVocê não pode convidar a si mesmo." to player
+                        stop
+                    if {_id} is "":
+                        bridge_partyCreate(player)
+                        set {_id} to bridge_partyId({_u})
+                    if {_id} is not "":
+                        bridge_partyInvite(player, arg-1)
+                    stop
         if {_action} is "criar":
             bridge_partyCreate(player)
             stop
@@ -708,6 +739,7 @@ on load:
     set {-bridge::party_ready} to false
     set {-bridge::party_epoch} to BridgePartyUUID.randomUUID().toString()
     set {bridge::tab::custom::party::1::*} to "ajuda", "criar", "lista", "convidar", "sair", "dissolver", "transferir", "adicionarlider", "expulsar", "votarexpulsao", "revolucao", "divulgar" and "privada"
+    add "@players" to {bridge::tab::custom::party::1::*}
     delete {bridge::tab::custom::party::2::*}
     loop {bridge::parties::*}:
         set {_id} to loop-value

@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101-MOD3-3A9ABB2C
-# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
+# Bridge-Delivery-ID: TB-20261104T013833Z-F8E33482
+# Bridge-Base-Commit: f62db5e3e75bdb12b73a7e41e38e8017f995b7a0
 # Bridge-Source-Core-SHA256: 3a9abb2cce17784c2dd8b5c14f423acf25101a7b96596951fefc4339eacdef00
 # ================================================================
 # THE BRIDGE - VOTAÇÕES / PAUSA E GOL DE OURO
@@ -82,6 +82,12 @@ function bridge_startVote(inst: text, type: text, duration: integer, reqTeam: in
             send "" to loop-value
             bridge_corePling(loop-value, 1.5)
 
+    if {_type} is "PAUSA":
+        if {_requester} is not "":
+            loop {bridge::instance::%{_inst}%::team::%{_reqTeam}%::players::*}:
+                set {_requesterUUID} to loop-value's uuid
+                if {_requesterUUID} is {_requester}:
+                    bridge_voteAnnounceTeam(loop-value, {_inst})
     bridge_checkVoteEarlyComplete({_inst})
 
 command /bridgevote [<text>]:
@@ -115,6 +121,7 @@ command /bridgevote [<text>]:
             send "%{bridge::config::erro}% &cUse: /bridgevote <sim|nao>" to player
             stop
 
+        bridge_voteAnnounceTeam(player, {_inst})
         bridge_checkVoteEarlyComplete({_inst})
 
 function bridge_checkVoteEarlyComplete(inst: text):
@@ -323,3 +330,41 @@ function bridge_evaluateVote(inst: text):
         loop {bridge::instance::%{_inst}%::team::2::players::*}:
             if bridge_isPresent(loop-value, {_inst}) is true:
                 send {_msg} to loop-value
+
+
+# Aviso somente ao time do votante, antes da conclusão apagar/alterar a consulta.
+function bridge_voteAnnounceTeam(p: player, inst: text):
+    if bridge_isPresent({_p}, {_inst}) is not true:
+        stop
+    if {bridge::instance::%{_inst}%::voting::active} is not true:
+        stop
+    if {bridge::instance::%{_inst}%::voting::match_id} is not {bridge::instance::%{_inst}%::match_id}:
+        stop
+    set {_u} to {_p}'s uuid
+    set {_team} to {bridge::player::%{_u}%::team}
+    if {_team} is not 1:
+        if {_team} is not 2:
+            stop
+    set {_vote} to {bridge::instance::%{_inst}%::voting::votes::%{_u}%}
+    if {_vote} is not "SIM":
+        if {_vote} is not "NAO":
+            stop
+    set {_shownVote} to "&aSIM"
+    if {_vote} is "NAO":
+        set {_shownVote} to "&cNÃO"
+    set {_yes} to 0
+    set {_no} to 0
+    set {_total} to 0
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            add 1 to {_total}
+            set {_memberUUID} to loop-value's uuid
+            if {bridge::instance::%{_inst}%::voting::votes::%{_memberUUID}%} is "SIM":
+                add 1 to {_yes}
+            else if {bridge::instance::%{_inst}%::voting::votes::%{_memberUUID}%} is "NAO":
+                add 1 to {_no}
+    set {_kind} to {bridge::instance::%{_inst}%::voting::type}
+    set {_name} to bridge_getFormattedPlayerName({_p})
+    loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+        if bridge_isPresent(loop-value, {_inst}) is true:
+            send "%{bridge::config::prefix}% %{_name}% &7votou %{_shownVote}% &8| &7%{_kind}% &8| &a%{_yes}% SIM &c%{_no}% NÃO &7/ %{_total}% presentes do time." to loop-value
