@@ -1,83 +1,42 @@
-# Bridge-Delivery-ID: TB-20261103T034700Z-BDEF6180
-# Bridge-Base-Commit: edaf906bd4395b78f1e2e0c152b3446dff4a2941
 #requires -Version 7.2
 [CmdletBinding()]
 param([string]$ProjectPath='F:\srv\vibecoding',[switch]$AutoStart,[switch]$SelfTest,[switch]$ReplaceLegacyPanel,[string]$InspectionReceipt='')
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-. (Join-Path $PSScriptRoot 'Bridge-Environment.ps1')
-if(-not $SelfTest -and [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'Painel requer sessao interativa; use start.bat no desktop ou o atalho de login'}
-$script:legacyClosed=$false;$script:legacyConfigEquivalent=$true
-if($ReplaceLegacyPanel -and -not $SelfTest){
- $legacyPath=Join-Path $ProjectPath 'painel.ps1';$pattern='(?i)-File\s+"?'+[regex]::Escape($legacyPath)+'"?(\s|$)'
- $legacy=@(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {$_.SessionId -eq [Diagnostics.Process]::GetCurrentProcess().SessionId -and $_.CommandLine -match $pattern})
- if($legacy.Count -gt 1){throw 'Mais de uma janela legada; nenhuma foi fechada'}
- if($legacy.Count -eq 1){
-  $entry=$legacy[0];$process=Get-Process -Id $entry.ProcessId -ErrorAction Stop
-  if($process.MainWindowTitle -cne 'Minecraft Server Launcher'){throw 'Titulo da janela legada inesperado; nao fechar'}
-  $config=Join-Path $ProjectPath 'painel_config.json';$before=[IO.File]::ReadAllText($config) | ConvertFrom-Json -AsHashtable
-  $again=Get-CimInstance Win32_Process -Filter ('ProcessId='+$entry.ProcessId)
-  if($again.CreationDate -ne $entry.CreationDate -or $again.CommandLine -cne $entry.CommandLine){throw 'Identidade legada mudou'}
-  if(-not $process.CloseMainWindow() -or -not $process.WaitForExit(10000)){throw 'Janela antiga nao encerrou normalmente; nenhum processo foi forcado'}
-  $after=[IO.File]::ReadAllText($config) | ConvertFrom-Json -AsHashtable
-  $keys=@(@($before.Keys)+@($after.Keys) | Sort-Object -Unique)
-  $different=@($keys | Where-Object {($before[$_] | ConvertTo-Json -Depth 8 -Compress) -cne ($after[$_] | ConvertTo-Json -Depth 8 -Compress)})
-  if($different.Count){throw ('Configuracao mudou ao fechar a GUI antiga; nao restaurei por cima: '+($different -join ', '))}
-  $script:legacyClosed=$true
- }
-}
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.Windows.Forms;Add-Type -AssemblyName System.Drawing
+if(-not $SelfTest -and [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'Abra o painel na sessao interativa'}
 [Windows.Forms.Application]::EnableVisualStyles()
-$form=[Windows.Forms.Form]::new();$form.Text='The Bridge - Ambiente';$form.Size=[Drawing.Size]::new(660,490);$form.StartPosition='CenterScreen';$form.Font=[Drawing.Font]::new('Segoe UI',10);$form.FormBorderStyle='FixedDialog';$form.MaximizeBox=$false
-$title=[Windows.Forms.Label]::new();$title.Text='The Bridge | inicio e encerramento';$title.SetBounds(20,15,600,28);$form.Controls.Add($title)
-$count=[Windows.Forms.Label]::new();$count.SetBounds(20,48,600,28);$form.Controls.Add($count)
-$log=[Windows.Forms.TextBox]::new();$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Vertical';$log.SetBounds(20,175,600,250);$form.Controls.Add($log)
-$existing=[Windows.Forms.CheckBox]::new();$existing.Text='Incluir servidor preexistente no encerramento (stop normal)';$existing.SetBounds(20,140,600,28);$form.Controls.Add($existing)
-$buttons=@{};$labels=@{Start='Iniciar ambiente';Cancel='Cancelar nesta sessao';Stop='Encerrar ambiente';Status='Atualizar estado';Recover='Recuperar ponte';Consoles='Ver consoles'};$i=0
-foreach($name in @('Start','Cancel','Stop','Status','Recover','Consoles')){$b=[Windows.Forms.Button]::new();$b.Text=$labels[$name];$b.Tag=$name;$b.SetBounds((20+($i%3)*200),(80+[math]::Floor($i/3)*30),190,28);$form.Controls.Add($b);$buttons[$name]=$b;$i++}
-$script:pending=$null;$script:cancelled=(-not $AutoStart);$script:clock=[Diagnostics.Stopwatch]::new();$script:closeAfter=$false;$script:allowClose=$false
-function Start-PanelOperation([string]$Action){
- if($script:pending){return};if($Action -eq 'Start'){Show-BridgeConsoles};$script:cancelled=$true;$buttons.Cancel.Enabled=$false;$include=$existing.Checked
- $runspace=[runspacefactory]::CreateRunspace();$runspace.ApartmentState='STA';$runspace.ThreadOptions='ReuseThread';$runspace.Open();$ps=[PowerShell]::Create();$ps.Runspace=$runspace
- $work={param($module,$root,$action,$include) . $module;$state=Read-BridgePanelState $root
- try{switch($action){'Start'{$r=Start-BridgeEnvironment -Root $root -State $state};'Stop'{$r=Stop-BridgeEnvironment -Root $root -State $state -IncludeExistingServer $include};'Status'{$s=Invoke-BridgeLocalTool 'get_status' @{};$r=@{messages=@('Servidor na porta: '+$s.server_listening,'Java da ponte: '+$s.java_owned,'Bots da ponte: '+$s.bots_owned)}};'Recover'{$r=Invoke-BridgePanelRecovery};default{throw 'Acao invalida'}};return $r}catch{return @{messages=@('Operacao interrompida: '+$_.Exception.Message);failed=$true}}finally{Save-BridgePanelState $root $state}}
- [void]$ps.AddScript($work.ToString()).AddArgument((Join-Path $PSScriptRoot 'Bridge-Environment.ps1')).AddArgument($ProjectPath).AddArgument($Action).AddArgument($include)
- $script:pending=@{ps=$ps;runspace=$runspace;handle=$ps.BeginInvoke();action=$Action};$log.AppendText("Operacao: $Action`r`n")
+$form=[Windows.Forms.Form]::new();$form.Text='The Bridge - Ambiente';$form.ClientSize=[Drawing.Size]::new(850,560);$form.MinimumSize=[Drawing.Size]::new(760,500);$form.StartPosition='CenterScreen'
+$table=[Windows.Forms.TableLayoutPanel]::new();$table.Dock='Fill';$table.ColumnCount=1;$table.RowCount=4;$table.Padding=[Windows.Forms.Padding]::new(8);[void]$table.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new([Windows.Forms.SizeType]::Percent,100))
+foreach($s in @('AutoSize','AutoSize','Percent','AutoSize')){if($s -eq 'Percent'){[void]$table.RowStyles.Add([Windows.Forms.RowStyle]::new([Windows.Forms.SizeType]::Percent,100))}else{[void]$table.RowStyles.Add([Windows.Forms.RowStyle]::new([Windows.Forms.SizeType]::AutoSize))}}
+$label=[Windows.Forms.Label]::new();$label.AutoSize=$true
+$bar=[Windows.Forms.FlowLayoutPanel]::new();$bar.Dock='Fill';$bar.AutoSize=$true;$bar.WrapContents=$true
+$script:buttons=@{}
+foreach($spec in @(@('StartEnv','Iniciar ambiente'),@('StopEnv','Encerrar ambiente'),@('StartServer','Iniciar servidor'),@('StopServer','Parar servidor da ponte'),@('StartBots','Iniciar bots'),@('StopBots','Parar bots'),@('Status','Atualizar estado'),@('Cancel','Cancelar contagem'),@('Console','2 - Console'),@('Bots','1 - Bots'))){$b=[Windows.Forms.Button]::new();$b.AutoSize=$true;$b.Text=$spec[1];$b.Tag=$spec[0];$bar.Controls.Add($b);$script:buttons[$spec[0]]=$b;$b.Add_Click({param($sender,$e) try{switch([string]$sender.Tag){'Cancel'{if($script:pending -and $script:pending.action -eq 'StartEnv'){$script:pending.cancel.Cancel();$log.AppendText("Cancelamento da espera solicitado; acoes ja concluidas nao sao desfeitas.`r`n")}else{$script:cancelled=$true;$label.Text='Inicio automatico cancelado; modo manual.'}};'Console'{Open-BridgeNextWindow 'Bridge-Console2.ps1'};'Bots'{Open-BridgeNextWindow 'Bridge-Bots.ps1'};default{Start-BridgeNextOperation ([string]$sender.Tag)}}}catch{$log.AppendText($_.Exception.Message+"`r`n")}})}
+$desktop=[Windows.Forms.CheckBox]::new();$desktop.Text='No fluxo de ambiente, abrir/fechar CMPack e pastas gerenciadas';$desktop.AutoSize=$true;$desktop.Checked=$true;$bar.Controls.Add($desktop)
+$log=[Windows.Forms.TextBox]::new();$log.Multiline=$true;$log.ReadOnly=$true;$log.ScrollBars='Both';$log.WordWrap=$false;$log.Dock='Fill'
+$note=[Windows.Forms.Label]::new();$note.AutoSize=$true;$note.MaximumSize=[Drawing.Size]::new(700,0);$note.Text='Iniciar bots e independente de Iniciar ambiente e pode conectar os bots configurados. Fechar o painel preserva componentes. Stop desarma a recuperacao do Java.'
+$table.Controls.Add($label,0,0);$table.Controls.Add($bar,0,1);$table.Controls.Add($log,0,2);$table.Controls.Add($note,0,3);$form.Controls.Add($table)
+if($SelfTest){foreach($w in @(760,1280,1920)){$form.ClientSize=[Drawing.Size]::new($w,600);$form.PerformLayout();$table.PerformLayout();$bar.PerformLayout();foreach($b in $script:buttons.Values){if($b.Left -lt 0 -or $b.Right -gt $bar.ClientSize.Width){throw 'Botao fora da largura'}}};if($script:buttons.Count -ne 10){throw 'Botoes incompletos'};$form.Dispose();@{panel_tests=4;network_used=$false;windows_shown=$false}|ConvertTo-Json -Compress;return}
+$script:pending=$null;$script:cancelled=(-not $AutoStart);$clock=[Diagnostics.Stopwatch]::StartNew()
+function Open-BridgeNextWindow([string]$File){$null=Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -ArgumentList ('-NoLogo -NoProfile -STA -File "'+(Join-Path $ProjectPath $File)+'"') -WorkingDirectory $ProjectPath}
+function Start-BridgeNextOperation([string]$Action){
+ if($script:pending){throw 'Operacao em andamento; nao houve novo disparo'}
+ $script:cancelled=$true;$label.Text='Contagem encerrada. Operacao: '+$Action;$script:buttons.Cancel.Enabled=$false
+ $rs=[runspacefactory]::CreateRunspace();$rs.ApartmentState='STA';$rs.Open();$ps=[PowerShell]::Create();$ps.Runspace=$rs
+ $cancel=[Threading.CancellationTokenSource]::new()
+ $work={param($file,$root,$action,$desktop,$token) . $file -Root $root;$script:BridgeNextCancellation=$token;try{return @{ok=$true;result=(Invoke-BridgeNextAction $action $desktop)}}catch{return @{ok=$false;error=$_.Exception.Message}}}
+ [void]$ps.AddScript($work.ToString()).AddArgument((Join-Path $ProjectPath 'Bridge-NextRuntime.ps1')).AddArgument($ProjectPath).AddArgument($Action).AddArgument($desktop.Checked).AddArgument($cancel.Token)
+ $script:pending=@{ps=$ps;runspace=$rs;handle=$ps.BeginInvoke();action=$Action;informationAt=0;cancel=$cancel};$log.AppendText('Operacao: '+$Action+"`r`n")
 }
-$buttons.Cancel.Add_Click({$script:cancelled=$true;$count.Text='Inicio automatico cancelado nesta sessao. Nenhum novo componente sera iniciado.'})
-$buttons.Start.Add_Click({if([Windows.Forms.MessageBox]::Show('Iniciar servidor se necessario, aguardar prontidao, iniciar controlador conforme a configuracao local, CMPack e pastas?','Iniciar ambiente','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Start'}})
-$buttons.Stop.Add_Click({if([Windows.Forms.MessageBox]::Show(('Encerrar componentes iniciados pelo ambiente? Incluir servidor preexistente: '+$existing.Checked+'. Nao havera finalizacao forcada.'),'Encerrar ambiente','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Stop'}})
-$buttons.Status.Add_Click({Start-PanelOperation 'Status'})
-$buttons.Recover.Add_Click({if([Windows.Forms.MessageBox]::Show('Solicitar reinicio somente do agente, com guardas, ou iniciar a tarefa existente se estiver parada? Nao sera encerrada a arvore de processos.','Recuperar ponte','YesNo','Question') -eq 'Yes'){Start-PanelOperation 'Recover'}})
-$timer=[Windows.Forms.Timer]::new();$timer.Interval=200
+$timer=[Windows.Forms.Timer]::new();$timer.Interval=250
 $timer.Add_Tick({
- if($script:pending -and $script:pending.handle.IsCompleted){$p=$script:pending;try{$r=@($p.ps.EndInvoke($p.handle));foreach($x in $r){foreach($m in @($x.messages)){$log.AppendText([string]$m+"`r`n")};if($x.failed -or $x.pending){$script:closeAfter=$false}};if($p.ps.HadErrors){$log.AppendText("Falha interna; consulte estado antes de repetir.`r`n");$script:closeAfter=$false}}catch{$log.AppendText("Falha de operacao; nao houve repeticao automatica.`r`n");$script:closeAfter=$false}finally{$p.ps.Dispose();$p.runspace.Dispose();$script:pending=$null}
- if($script:closeAfter){$script:closeAfter=$false;$script:allowClose=$true;$form.Close();return}}
- foreach($name in @('Start','Stop','Status','Recover')){$buttons[$name].Enabled=($null -eq $script:pending)}
- if(-not $script:cancelled){$remaining=[math]::Max(0,[math]::Ceiling(30-$script:clock.Elapsed.TotalSeconds));$count.Text="Inicio automatico em $remaining segundos. Cancelar nao fecha o painel.";if((Get-BridgeCountdownAction $script:clock.Elapsed.TotalSeconds $script:cancelled ($null -ne $script:pending)) -eq 'START'){$script:cancelled=$true;Start-PanelOperation 'Start'}}
-})
-$form.Add_Shown({$script:clock.Start();$timer.Start();if($script:cancelled){$count.Text='Modo manual. Nenhum componente sera iniciado sem sua acao.'}})
-$form.Add_FormClosing({param($sender,$event)
- if($script:allowClose){return};if($script:pending){$event.Cancel=$true;[void][Windows.Forms.MessageBox]::Show('Aguarde a operacao terminar; nao interromper o controle no meio.');return}
- $script:cancelled=$true;$choice=[Windows.Forms.MessageBox]::Show('Sim: solicitar encerramento. Nao: fechar apenas o painel e preservar componentes. Cancelar: continuar aqui.','Fechar painel','YesNoCancel','Question')
- if($choice -eq 'Cancel'){$event.Cancel=$true}elseif($choice -eq 'Yes'){$event.Cancel=$true;$script:closeAfter=$true;Start-PanelOperation 'Stop'}else{$timer.Stop()}
-})
-$form.Add_Shown({
- if($InspectionReceipt){
-  $file=[IO.Path]::GetFullPath($InspectionReceipt);$allowed='F:\srv\TheBridge-Remote-v2\backups\'
-  if(-not $file.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($file) -cne 'panel-visible.json'){throw 'Destino de evidencia recusado'}
-  if(-not(Test-Path -LiteralPath $file)){
-   $proof=@{session_id=[Diagnostics.Process]::GetCurrentProcess().SessionId;pid=$PID;visible=$form.Visible;window_handle=$form.Handle.ToInt64();title=$form.Text;auto_start=[bool]$AutoStart;legacy_closed=$script:legacyClosed;config_semantically_preserved=$script:legacyConfigEquivalent;utc=[DateTime]::UtcNow.ToString('o')}
-   $bytes=[Text.UTF8Encoding]::new($false).GetBytes(($proof | ConvertTo-Json -Depth 5 -EscapeHandling EscapeNonAscii));$stream=[IO.File]::Open($file,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
-   try{$stream.Write($bytes,0,$bytes.Length)}finally{$stream.Dispose()}
-  }
+ if($script:pending){$p=$script:pending;while($p.informationAt -lt $p.ps.Streams.Information.Count){$log.AppendText([string]$p.ps.Streams.Information[$p.informationAt].MessageData+"`r`n");$p.informationAt++}
+  if($p.handle.IsCompleted){try{$results=@($p.ps.EndInvoke($p.handle));if($p.ps.HadErrors){throw 'Falha interna: consulte o resultado antes de repetir'};foreach($r in $results){if($r.ok){$log.AppendText(($r.result|ConvertTo-Json -Depth 9)+"`r`n")}else{$log.AppendText('Operacao nao concluida: '+$r.error+"`r`n")}};$label.Text='Operacao encerrada; consulte resultado e Atualizar estado.'}catch{$log.AppendText($_.Exception.Message+"`r`n")}finally{$p.ps.Dispose();$p.runspace.Dispose();$p.cancel.Dispose();$script:pending=$null}}
  }
+ foreach($k in @('StartEnv','StopEnv','StartServer','StopServer','StartBots','StopBots','Status')){$script:buttons[$k].Enabled=($null -eq $script:pending)}
+ $script:buttons.Cancel.Enabled=((-not $script:cancelled -and $null -eq $script:pending) -or ($script:pending -and $script:pending.action -eq 'StartEnv'));$script:buttons.Cancel.Text=$(if($script:pending -and $script:pending.action -eq 'StartEnv'){'Cancelar espera'}else{'Cancelar contagem'})
+ if(-not $script:cancelled){$remaining=[math]::Max(0,[math]::Ceiling(30-$clock.Elapsed.TotalSeconds));$label.Text='Inicio automatico em '+$remaining+' segundos.';if($remaining -le 0){Start-BridgeNextOperation 'StartEnv'}}
 })
-function Show-BridgeConsoles {
- if($SelfTest){return}
- try{$viewer=Join-Path $PSScriptRoot 'Bridge-Consoles.ps1';if(-not(Test-Path -LiteralPath $viewer -PathType Leaf)){throw 'Visualizador ausente'};$null=Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -ArgumentList ('-NoLogo -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$viewer+'"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden}catch{$log.AppendText("Nao foi possivel abrir os consoles: "+$_.Exception.Message+"`r`n")}
-}
-$buttons.Consoles.Add_Click({Show-BridgeConsoles})
-$form.Add_Shown({Show-BridgeConsoles})
-if($SelfTest){if($buttons.Count -ne 6 -or $timer.Interval -ne 200){throw 'Estrutura da GUI invalida'};$timer.Dispose();$form.Dispose();[pscustomobject]@{gui_constructed=$true;buttons=6;components_started=$false} | ConvertTo-Json -Compress;return}
+$form.Add_FormClosing({param($sender,$e) if($script:pending){$e.Cancel=$true;$log.AppendText("Aguarde a operacao terminar antes de fechar.`r`n")}})
 $mutex=[Threading.Mutex]::new($false,'Local\TheBridgeEnvironmentPanel');$owned=$false
-try{try{$owned=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$owned=$true};if(-not $owned){return};[void]$form.ShowDialog()}finally{$timer.Dispose();$form.Dispose();if($owned){$mutex.ReleaseMutex()};$mutex.Dispose()}
+try{try{$owned=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$owned=$true};if(-not $owned){throw 'Outro painel Ambiente esta aberto. Feche-o preservando os componentes.'};if($script:cancelled){$label.Text='Modo manual. Nenhum componente iniciado ao abrir.'};$timer.Start();[void]$form.ShowDialog()}finally{$timer.Stop();$timer.Dispose();if($script:pending){try{$script:pending.ps.Stop()}catch{};$script:pending.ps.Dispose();$script:pending.runspace.Dispose();$script:pending.cancel.Dispose()};if($owned){$mutex.ReleaseMutex()};$mutex.Dispose();$form.Dispose()}
