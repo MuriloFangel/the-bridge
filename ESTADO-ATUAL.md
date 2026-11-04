@@ -28,3 +28,13 @@ Bridge-Cages propõe largura interna 3/5/7 para 1-2/3-4/5-6 integrantes, altura/
 
 VERIFICAÇÕES: textuais e modelos Python de geometria/snapshot e fila; não executam Skript nem Minecraft. PENDENTES: parser/runtime, testes1v1/2v2, presença, estatísticas, reset e isolamento. Reutilizar T01,T03,T07,T09,T14-T19 do roteiro existente quando aplicável; T09 continua sem aprovação física. Tamanhos maiores de dois continuam sem fluxo de formação neste lote. Sem instalação ou reload por esta entrega.
 <!-- END BRIDGE DOC TB-20261103T152150Z-29C38DD3 -->
+
+<!-- BEGIN BRIDGE DOC TB-20261103T235827Z-F4C71991 -->
+### 1-base parcial — salvamento local conferido
+
+ENTREGA GERADA: patches em Gameplay (lancamento de flecha e aviso de protecao), Scoreboard (score real versus cache) e Duos (sorteio explicito sem reposicao). Preservados layout/barras e demais regras fora dos patches. Passagem fisica por aliados continua pendente; nao e fechamento integral da 1-base.
+
+APLICACAO LOCAL: administrador concluiu recuperacao manual e informou SALVOS_SEM_RELOAD, com backups na pasta .git/bridge-worker-backups/TB-20261103T235827Z-F4C71991. A ponte releu os tres arquivos e confirmou os hashes declarados. A tarefa original falhou antes da escrita; o salvamento final foi manual, nao sucesso da tarefa remota.
+
+PUBLICACAO DO CODIGO NO GIT: ainda nao demonstrada nesta verificacao; main consultada 0de976d1c8b90e9ffb179e034643a577a51c585c. CARREGAMENTO: nao executado por esta entrega. TESTES DE GAMEPLAY DOS PATCHES: pendentes. Modelos Python e correspondencia de hashes nao aprovam funcionamento.
+<!-- END BRIDGE DOC TB-20261103T235827Z-F4C71991 -->
