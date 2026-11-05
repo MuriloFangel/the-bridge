@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
-# Bridge-Base-Commit: 0de976d1c8b90e9ffb179e034643a577a51c585c
+ Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
+# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -155,7 +155,21 @@ function bridge_sidebarTime(inst: text) :: text:
     set {_remaining} to {bridge::instance::%{_inst}%::time_remaining}
     if {_remaining} is not set:
         set {_remaining} to 900
-    return bridge_formatTime({_remaining})
+    set {_initial} to {bridge::instance::%{_inst}%::time_initial}
+    # Sessao anterior ao patch: nao inventar sua duracao inicial.
+    if {_initial} is not set:
+        return "&e%bridge_formatTime({_remaining})%"
+    if {_initial} <= 0:
+        return "&e%bridge_formatTime({_remaining})%"
+    set {_ratio} to {_remaining} / {_initial}
+    set {_color} to "&c"
+    if {_ratio} >= 0.7:
+        set {_color} to "&a"
+    else if {_ratio} >= 0.4:
+        set {_color} to "&e"
+    else if {_ratio} >= 0.2:
+        set {_color} to "&6"
+    return "%{_color}%%bridge_formatTime({_remaining})%"
 
 command /bridgescoreboard [<text>] [<text>]:
     permission: bridge.admin
@@ -215,7 +229,13 @@ function bridge_sidebarRender(p: player, obj: object):
         bridge_setScoreLine({_obj}, "&7Procurando partida...", 6)
         bridge_setScoreLine({_obj}, "&1", 5)
         bridge_setScoreLine({_obj}, "&fMapa: &a%{_arena}%", 4)
-        bridge_setScoreLine({_obj}, "&fModo: &e1v1", 3)
+        set {_mode} to "1v1"
+        if {bridge::player::%{_u}%::queue_mode} is "2v2":
+            if bridge_duosWaiting("%{_u}%", {_arena}) is true:
+                set {_mode} to "2v2"
+            else:
+                set {_mode} to "Espera invalida"
+        bridge_setScoreLine({_obj}, "&fModo: &e%{_mode}%", 3)
         bridge_setScoreLine({_obj}, "&2", 2)
         bridge_setScoreLine({_obj}, "&e%{_footer}%", 1)
         stop

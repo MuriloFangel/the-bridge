@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
-# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
+ Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
+# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
 # ================================================================
 # THE BRIDGE - CORE / FILA E COORDENAÇÃO DO CICLO DA PARTIDA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -212,6 +212,8 @@ function bridge_startMatch(p1: player, p2: player, arena: text):
     if {_maxTime} is not set:
         set {_maxTime} to 900
     set {bridge::instance::%{_inst}%::time_remaining} to {_maxTime}
+    set {bridge::instance::%{_inst}%::time_initial} to {_maxTime}
+    delete {bridge::instance::%{_inst}%::time_notices::*}
     delete {bridge::instance::%{_inst}%::frozen}
     delete {bridge::instance::%{_inst}%::freeze_reason}
     delete {bridge::instance::%{_inst}%::freeze_player_name}
@@ -417,6 +419,8 @@ function bridge_endMatch(inst: text, winnerTeam: integer):
             delete {bridge::player::%{_p}'s uuid%::*}
 
     delete {bridge::instance::%{_inst}%::time_remaining}
+    delete {bridge::instance::%{_inst}%::time_initial}
+    delete {bridge::instance::%{_inst}%::time_notices::*}
     delete {bridge::instance::%{_inst}%::frozen}
     delete {bridge::instance::%{_inst}%::in_pause}
     delete {bridge::instance::%{_inst}%::pause_resume_votes::*}

@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
-# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
+ Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
+# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
 # ================================================================
 # THE BRIDGE - SUSPENSÕES / AUSÊNCIA, PAUSA E RETOMADA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -9,6 +9,46 @@
 
 # bridge_tickPauseControl preserva o controlador combinado de tempo/votos/pausa.
 # O Core continua chamando-o a cada segundo, na mesma frequência.
+
+import:
+    org.bukkit.Sound as BridgeClockSound
+
+# B/C: chamado somente pelo decremento regulamentar; sem waits ou novo timer.
+function bridge_timeThresholdNotices(inst: text, sid: number, previous: number):
+    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
+        stop
+    set {_initial} to {bridge::instance::%{_inst}%::time_initial}
+    if {_initial} is not set:
+        stop
+    if {_initial} <= 0:
+        stop
+    set {_remaining} to {bridge::instance::%{_inst}%::time_remaining}
+    if {_remaining} <= 0:
+        stop
+    loop 2 times:
+        set {_divisor} to 3
+        if loop-value is 2:
+            set {_divisor} to 6
+        set {_threshold} to floor({_initial} / {_divisor})
+        if {_threshold} > 0:
+            if {_previous} > {_threshold}:
+                if {_remaining} <= {_threshold}:
+                    if {bridge::instance::%{_inst}%::time_notices::%{_divisor}%} is not {_sid}:
+                        set {bridge::instance::%{_inst}%::time_notices::%{_divisor}%} to {_sid}
+                        set {_minutes} to floor({_remaining} / 60)
+                        set {_seconds} to {_remaining} - ({_minutes} * 60)
+                        set {_duration} to "%{_seconds}% segundos"
+                        if {_minutes} > 0:
+                            set {_duration} to "%{_minutes}% minutos e %{_seconds}% segundos"
+                            if {_seconds} is 0:
+                                set {_duration} to "%{_minutes}% minutos"
+                        bridge_chatInstance({_inst}, "&eTempo restante: &f%{_duration}%&e.")
+                        loop 2 times:
+                            set {_team} to loop-value-2
+                            loop {bridge::instance::%{_inst}%::team::%{_team}%::players::*}:
+                                set {_listener} to loop-value-3
+                                if bridge_isPresent({_listener}, {_inst}) is true:
+                                    {_listener}.playSound({_listener}.getLocation(), BridgeClockSound.NOTE_BASS, 1.0, 1.0)
 
 function bridge_pauseActionsBlocked(inst: text) :: boolean:
     if {bridge::instance::%{_inst}%::frozen} is true:
@@ -114,7 +154,9 @@ function bridge_tickPauseControl(inst: text):
         if {bridge::instance::%{_inst}%::golden_goal} is true:
             set {bridge::instance::%{_inst}%::time_remaining} to 0
             stop
+        set {_previousTime} to {bridge::instance::%{_inst}%::time_remaining}
         remove 1 from {bridge::instance::%{_inst}%::time_remaining}
+        bridge_timeThresholdNotices({_inst}, {_sid}, {_previousTime})
         if {bridge::instance::%{_inst}%::time_remaining} <= 0:
             set {bridge::instance::%{_inst}%::time_remaining} to 0
             bridge_handleTimeEnd({_inst})

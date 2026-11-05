@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
-# Bridge-Base-Commit: 0de976d1c8b90e9ffb179e034643a577a51c585c
+ Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
+# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
 # THE BRIDGE - 2v2 DE SOLOS / PREPARAÇÃO DE SESSÃO POR LISTAS
 # Não integra parties; /jogar continua no caminho 1v1 do Core.
 # /l e quit invalidam a entrada pelo estado/ticket; não reutilizar espera antiga.
@@ -109,6 +109,8 @@ function bridge_prepareTeamLists(side1: object, side2: object, arena: text) :: t
     if {_time} is not set:
         set {_time} to 900
     set {bridge::instance::%{_inst}%::time_remaining} to {_time}
+    set {bridge::instance::%{_inst}%::time_initial} to {_time}
+    delete {bridge::instance::%{_inst}%::time_notices::*}
     delete {bridge::instance::%{_inst}%::closing_id}
     delete {bridge::instance::%{_inst}%::frozen}
     delete {bridge::instance::%{_inst}%::freeze_reason}
