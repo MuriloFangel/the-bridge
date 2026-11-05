@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261102T023121Z-9237755E
-# Bridge-Base-Commit: c203e14762e99c308941239e37c4304949ef0e7c
+# Bridge-Delivery-ID: TB-20261105T231354Z-2450712B
+# Bridge-Base-Commit: afb5221010e1ed825e24f2ff827c4e9d17eda4f8
 # ================================================================
 # THE BRIDGE - KIT E ARMADURA / IDENTIDADE DE VIDA E PROTEÇÃO
 # Fornece funções ao Bridge-Core.sk. Sem eventos, comandos ou inicialização de partida.
@@ -57,6 +57,7 @@ function bridge_giveKit(p: player, teamColorData: integer):
         set {-bridge::life_counter} to 0
     add 1 to {-bridge::life_counter}
     set {bridge::player::%{_u}%::life_id} to {-bridge::life_counter}
+    delete {bridge::player::%{_u}%::arrow_reload::*}
     set {bridge::player::%{_u}%::respawn_protected_until} to (unix timestamp of now) + 2
     delete {bridge::player::%{_u}%::respawn_protection}
     clear {_p}'s inventory

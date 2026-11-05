@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261103T235827Z-F4C71991
-# Bridge-Base-Commit: 0de976d1c8b90e9ffb179e034643a577a51c585c
+# Bridge-Delivery-ID: TB-20261105T231354Z-2450712B
+# Bridge-Base-Commit: afb5221010e1ed825e24f2ff827c4e9d17eda4f8
 # ================================================================
 # THE BRIDGE - GAMEPLAY / COMBATE, RESPAWN, ITENS E CONSTRUÇÃO
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -186,25 +186,22 @@ on BridgeArrowLaunchEvent with priority highest:
     if {_life} is not set:
         cancel event
         stop
+    if {bridge::player::%{_u}%::arrow_reload::sid} is {_sid}:
+        if {bridge::player::%{_u}%::arrow_reload::life} is {_life}:
+            if {bridge::player::%{_u}%::arrow_reload::remaining} > 0:
+                cancel event
+                stop
     set {_id} to {_arrow}.getUniqueId().toString()
     set {-bridge::arrows::%{_id}%::instance} to {_inst}
     set {-bridge::arrows::%{_id}%::match_id} to {_sid}
     set {-bridge::arrows::%{_id}%::shooter} to {_u}
     set {-bridge::arrow_entities::%{_id}%} to {_arrow}
-    wait 3.5 seconds
-    if {_p} is not online:
-        stop
-    if bridge_isPresent({_p}, {_inst}) is not true:
-        stop
-    if {bridge::instance::%{_inst}%::match_id} is not {_sid}:
-        stop
-    if {bridge::player::%{_u}%::life_id} is not {_life}:
-        stop
-    if {_p}'s inventory does not contain arrow:
-        set slot 8 of {_p}'s inventory to 1 arrow
-        bridge_corePling({_p}, 1.8)
-        bridge_sendActionBar({_p}, "&a+1 Flecha regenerada!")
-        send "%{bridge::config::prefix}% &aFlecha reposta &8| &7O arco está disponível." to {_p}
+    # Um contador por jogador, em vez de tarefas atrasadas por disparo.
+    set {bridge::player::%{_u}%::arrow_reload::instance} to {_inst}
+    set {bridge::player::%{_u}%::arrow_reload::sid} to {_sid}
+    set {bridge::player::%{_u}%::arrow_reload::life} to {_life}
+    set {bridge::player::%{_u}%::arrow_reload::remaining} to 70
+    set {bridge::player::%{_u}%::arrow_reload::first_tick} to true
 
 on pickup:
     if {bridge::player::%player's uuid%::state} is "INGAME":
@@ -510,3 +507,38 @@ function bridge_spawnProtectionNotice(e: object, v: player):
     if bridge_combatAllowed({_a}, {_v}) is not true:
         stop
     send "%{bridge::config::prefix}% &e%bridge_getFormattedPlayerName({_v})% &eestá protegido após o respawn." to {_a}
+
+# O contador usa o mesmo tempo de jogo do wait legado: 70 ticks = 3,5s a 20 TPS.
+# Pausa nao prolonga a reposicao existente; so a exibicao muda de contexto.
+function bridge_arrowReloadTick(p: player):
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::arrow_reload::remaining} is not set:
+        stop
+    set {_inst} to {bridge::player::%{_u}%::arrow_reload::instance}
+    set {_valid} to false
+    if {_inst} is set:
+        if bridge_isPresent({_p}, {_inst}) is true:
+            if {bridge::instance::%{_inst}%::match_id} is {bridge::player::%{_u}%::arrow_reload::sid}:
+                if {bridge::player::%{_u}%::life_id} is {bridge::player::%{_u}%::arrow_reload::life}:
+                    set {_valid} to true
+    if {_valid} is not true:
+        delete {bridge::player::%{_u}%::arrow_reload::*}
+        stop
+    # A primeira verificacao ocorre depois da consumacao normal do disparo.
+    if {bridge::player::%{_u}%::arrow_reload::first_tick} is true:
+        delete {bridge::player::%{_u}%::arrow_reload::first_tick}
+        remove all arrows from {_p}'s inventory
+    remove 1 from {bridge::player::%{_u}%::arrow_reload::remaining}
+    if {bridge::player::%{_u}%::arrow_reload::remaining} > 0:
+        stop
+    delete {bridge::player::%{_u}%::arrow_reload::*}
+    # Normaliza para uma flecha, inclusive se outra fonte inseriu uma no intervalo.
+    remove all arrows from {_p}'s inventory
+    set slot 8 of {_p}'s inventory to 1 arrow
+    bridge_corePling({_p}, 1.8)
+    bridge_sendActionBar({_p}, "&a●●●●●●● &8| &a+1 Flecha regenerada!")
+    send "%{bridge::config::prefix}% &aFlecha reposta &8| &7O arco esta disponivel." to {_p}
+
+every 1 tick:
+    loop all players:
+        bridge_arrowReloadTick(loop-player)

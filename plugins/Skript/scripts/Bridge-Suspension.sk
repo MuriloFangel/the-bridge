@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T174330Z-E91BE03E
+# Bridge-Delivery-ID: TB-20261105T231354Z-2450712B
 # Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
+# Bridge-Base-Commit: afb5221010e1ed825e24f2ff827c4e9d17eda4f8
 # ================================================================
 # THE BRIDGE - SUSPENSÕES / AUSÊNCIA, PAUSA E RETOMADA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -103,7 +103,7 @@ function bridge_tickPauseControl(inst: text):
             if {bridge::instance::%{_inst}%::resume_active} is not true:
                 remove 1 from {bridge::instance::%{_inst}%::freeze_timer}
                 set {_left} to {bridge::instance::%{_inst}%::freeze_timer}
-                bridge_broadcastInstanceActionBar({_inst}, "&cAGUARDANDO PRESENÇA &8| &f%{_left}%s &8| &7Partida bloqueada")
+                # Actionbar renderizada pelo compositor do Core.
                 if {_left} <= 0:
                     bridge_handleDisconnectTimeout({_inst})
         stop
@@ -128,7 +128,7 @@ function bridge_tickPauseControl(inst: text):
             loop {bridge::instance::%{_inst}%::team::%{_t}%::players::*}:
                 if bridge_isPresent(loop-value-2, {_inst}) is true:
                     bridge_coreTitle(loop-value-2, "&ePAUSA &8| %{_name}%", "&7%{_left}%s restantes", 20)
-                    bridge_sendActionBar(loop-value-2, "&ePAUSA &8| &f%{_left}%s &8| &7Time solicitante: /despausar")
+                    # Actionbar renderizada pelo compositor do Core.
         if {_left} <= 0:
             bridge_chatInstance({_inst}, "&eA duração da pausa terminou. Retomada automática após a contagem.")
             bridge_resumeFromPause({_inst})
@@ -142,7 +142,7 @@ function bridge_tickPauseControl(inst: text):
         set {_type} to {bridge::instance::%{_inst}%::voting::type}
         set {_left} to ceil({bridge::instance::%{_inst}%::voting::deadline} - (unix timestamp of now))
         set {bridge::instance::%{_inst}%::voting::timer} to {_left}
-        bridge_broadcastInstanceActionBar({_inst}, "&eVOTAÇÃO: %{_type}% &8| &f%{_left}%s &8| &7/bridgevote sim ou nao")
+        # Actionbar renderizada pelo compositor do Core.
         if {_left} is 10 or 5:
             bridge_chatInstance({_inst}, "&e%{_type}% &8| &f%{_left}%s &7para votar: /bridgevote sim ou /bridgevote nao.")
         if {_left} <= 0:

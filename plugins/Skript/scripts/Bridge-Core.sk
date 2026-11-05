@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T194105Z-6B38EE94
+# Bridge-Delivery-ID: TB-20261105T231354Z-2450712B
 # Bridge-Previous-Delivery: TB-20261105T192938Z-28822372
-# Bridge-Base-Commit: a973b5cf3dcea366cab370384b02610fed1d24cd
+# Bridge-Base-Commit: afb5221010e1ed825e24f2ff827c4e9d17eda4f8
 # ================================================================
 # THE BRIDGE - CORE / FILA E COORDENAÇÃO DO CICLO DA PARTIDA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -65,9 +65,99 @@ function bridge_getFormattedPlayerName(p: player) :: text:
         return "%{_code}%%name of {_p}%"
     return "&f%name of {_p}%"
 
+# Os consumidores publicam feedback; somente bridge_actionbarRender envia a barra.
 function bridge_sendActionBar(p: player, msg: text):
-    if {_p} is online:
-        send action bar colored {_msg} to {_p}
+    if {_p} is not online:
+        stop
+    set {_u} to {_p}'s uuid
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    if {_inst} is not set:
+        stop
+    if bridge_isPresent({_p}, {_inst}) is not true:
+        stop
+    set {-bridge::actionbar::%{_u}%::feedback} to {_msg}
+    set {-bridge::actionbar::%{_u}%::until} to (unix timestamp of now) + 2
+    set {-bridge::actionbar::%{_u}%::sid} to {bridge::instance::%{_inst}%::match_id}
+    set {-bridge::actionbar::%{_u}%::life} to {bridge::player::%{_u}%::life_id}
+
+function bridge_actionbarRender(p: player):
+    set {_u} to {_p}'s uuid
+    set {_message} to ""
+    set {_inst} to {bridge::player::%{_u}%::instance}
+    set {_present} to false
+    if {_inst} is set:
+        if bridge_isPresent({_p}, {_inst}) is true:
+            set {_present} to true
+    if {_present} is true:
+        set {_sid} to {bridge::instance::%{_inst}%::match_id}
+        set {_life} to {bridge::player::%{_u}%::life_id}
+        if {bridge::instance::%{_inst}%::resume_active} is true:
+            set {_message} to "&eRETOMANDO &8| &7Aguarde o VALENDO"
+        else if {bridge::instance::%{_inst}%::frozen} is true:
+            set {_left} to {bridge::instance::%{_inst}%::freeze_timer}
+            set {_message} to "&cAGUARDANDO PRESENCA &8| &f%{_left}%s &8| &7Partida bloqueada"
+        else if {bridge::instance::%{_inst}%::in_pause} is true:
+            set {_left} to {bridge::instance::%{_inst}%::pause_timer}
+            set {_message} to "&ePAUSA &8| &f%{_left}%s &8| &7Time solicitante: /despausar"
+        else if {bridge::instance::%{_inst}%::voting::active} is true:
+            set {_kind} to {bridge::instance::%{_inst}%::voting::type}
+            set {_left} to max(0, ceil({bridge::instance::%{_inst}%::voting::deadline} - (unix timestamp of now)))
+            set {_message} to "&eVOTACAO: %{_kind}% &8| &f%{_left}%s &8| &7/bridgevote sim ou nao"
+        if {-bridge::actionbar::%{_u}%::sid} is {_sid}:
+            if {-bridge::actionbar::%{_u}%::life} is {_life}:
+                if {-bridge::actionbar::%{_u}%::until} > (unix timestamp of now):
+                    set {_feedback} to {-bridge::actionbar::%{_u}%::feedback}
+                    if {_feedback} is set:
+                        if {_message} is "":
+                            set {_message} to {_feedback}
+                        else:
+                            set {_message} to "%{_message}% &8| %{_feedback}%"
+        if {bridge::player::%{_u}%::arrow_reload::sid} is {_sid}:
+            if {bridge::player::%{_u}%::arrow_reload::life} is {_life}:
+                if {bridge::player::%{_u}%::arrow_reload::instance} is {_inst}:
+                    set {_leftTicks} to {bridge::player::%{_u}%::arrow_reload::remaining}
+                    if {_leftTicks} is set:
+                        set {_green} to floor((70 - {_leftTicks}) / 10)
+                        set {_green} to max(0, min(7, {_green}))
+                        set {_dots} to ""
+                        loop 7 times:
+                            if loop-value <= {_green}:
+                                set {_dots} to "%{_dots}%&a●"
+                            else:
+                                set {_dots} to "%{_dots}%&7●"
+                        if {_message} is "":
+                            set {_message} to "&7Flecha &8[%{_dots}%&8]"
+                        else:
+                            set {_message} to "%{_message}% &8| &7Flecha &8[%{_dots}%&8]"
+    else:
+        delete {-bridge::actionbar::%{_u}%::feedback}
+        delete {-bridge::actionbar::%{_u}%::until}
+        delete {-bridge::actionbar::%{_u}%::sid}
+        delete {-bridge::actionbar::%{_u}%::life}
+    set {_last} to {-bridge::actionbar::%{_u}%::last}
+    set {_refresh} to false
+    if {_last} is not {_message}:
+        set {_refresh} to true
+    if {_message} is not "":
+        if {-bridge::actionbar::%{_u}%::refresh_at} is not set:
+            set {_refresh} to true
+        else if {-bridge::actionbar::%{_u}%::refresh_at} <= (unix timestamp of now):
+            set {_refresh} to true
+    if {_refresh} is true:
+        if {_message} is not "":
+            send action bar colored {_message} to {_p}
+        else if {_last} is set:
+            if {_last} is not "":
+                send action bar "" to {_p}
+        set {-bridge::actionbar::%{_u}%::last} to {_message}
+        set {-bridge::actionbar::%{_u}%::refresh_at} to (unix timestamp of now) + 1
+
+every 2 ticks:
+    loop all players:
+        bridge_actionbarRender(loop-player)
+
+on quit:
+    delete {-bridge::actionbar::%player's uuid%::*}
 
 function bridge_coreTitle(p: player, titleText: text, subText: text, ticks: integer = 20):
     if {_p} is online:
