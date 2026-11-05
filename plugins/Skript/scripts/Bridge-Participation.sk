@@ -1,5 +1,5 @@
-# Bridge-Delivery-ID: TB-20261101T064731Z-37E2A4B1
-# Bridge-Base-Commit: ea6d6772f2207506406beda0b6a680c30f420dc6
+# Bridge-Delivery-ID: TB-20261105T192938Z-28822372
+# Bridge-Base-Commit: 73f18d7a96c195962c46dc57ad1cdd966e5bd2f8
 # ================================================================
 # THE BRIDGE - PARTICIPAÇÃO, LOBBY E RETORNO
 # Extração mecânica. Decisões de congelamento/cota/timeout permanecem no Core.
@@ -213,9 +213,7 @@ command /l [<text>]:
     trigger:
         set {_u} to player's uuid
         if {bridge::player::%{_u}%::state} is "QUEUE":
-            set {_arena} to {bridge::player::%{_u}%::queue_arena}
-            remove player from {bridge::queue::%{_arena}%::*}
-            delete {bridge::player::%{_u}%::*}
+            bridge_queueDepart(player, "saida voluntaria")
             send "%{bridge::config::prefix}% &eVocê saiu da fila de espera." to player
         else if {bridge::player::%{_u}%::state} is "INGAME":
             bridge_markAbsent(player)
@@ -272,8 +270,6 @@ on join:
 on quit:
     set {_uuid} to player's uuid
     if {bridge::player::%{_uuid}%::state} is "QUEUE":
-        set {_arena} to {bridge::player::%{_uuid}%::queue_arena}
-        remove player from {bridge::queue::%{_arena}%::*}
-        delete {bridge::player::%{_uuid}%::*}
+        bridge_queueDepart(player, "desconexao")
         stop
     bridge_markAbsent(player)

@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T174330Z-E91BE03E
+# Bridge-Delivery-ID: TB-20261105T192938Z-28822372
 # Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
+# Bridge-Base-Commit: 73f18d7a96c195962c46dc57ad1cdd966e5bd2f8
 # ================================================================
 # THE BRIDGE - CORE / FILA E COORDENAÇÃO DO CICLO DA PARTIDA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -160,19 +160,101 @@ function bridge_joinQueue(p: player, arena: text):
         set {_candidate} to loop-value
         if {_candidate} is online:
             if {_candidate} is not {_p}:
-                if {bridge::player::%{_candidate}'s uuid%::state} is "QUEUE":
-                    if {bridge::player::%{_candidate}'s uuid%::queue_arena} is {_arena}:
-                        set {_opponent} to {_candidate}
-                        remove {_candidate} from {bridge::queue::%{_arena}%::*}
-                        exit loop
+                if bridge_queueWaiting({_candidate}, {_arena}, "1v1") is true:
+                    set {_opponent} to {_candidate}
+                    remove {_candidate} from {bridge::queue::%{_arena}%::*}
+                    exit loop
         remove {_candidate} from {bridge::queue::%{_arena}%::*}
     if {_opponent} is set:
+        # A segunda entrada e pareada imediatamente, sem criar espera artificial.
+        send "%{bridge::config::prefix}% &f%name of {_p}% &aentrou na fila &8— &f2/2 &7(%{_arena}% | 1v1)." to {_opponent}
+        send "%{bridge::config::prefix}% &f%name of {_p}% &aentrou na fila &8— &f2/2 &7(%{_arena}% | 1v1)." to {_p}
         bridge_startMatch({_opponent}, {_p}, {_arena})
         stop
     add {_p} to {bridge::queue::%{_arena}%::*}
     set {bridge::player::%{_p}'s uuid%::state} to "QUEUE"
     set {bridge::player::%{_p}'s uuid%::queue_arena} to {_arena}
-    send "%{bridge::config::prefix}% &aVocê entrou na fila de &f%{_arena}%&a! Procurando oponente... &7(/l para sair)" to {_p}
+    bridge_queueJoined({_p}, {_arena}, "1v1")
+
+# Avisos de fila: somente entradas online que ainda pertencem ao formato/arena.
+function bridge_queueWaiting(p: player, arena: text, mode: text) :: boolean:
+    if {_p} is not online:
+        return false
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is not "QUEUE":
+        return false
+    if {bridge::player::%{_u}%::queue_arena} is not {_arena}:
+        return false
+    if {_mode} is "2v2":
+        return bridge_duosWaiting({_u}, {_arena})
+    if {_mode} is not "1v1":
+        return false
+    # O Core legado nao gravava queue_mode para 1v1.
+    if {bridge::player::%{_u}%::queue_mode} is set:
+        if {bridge::player::%{_u}%::queue_mode} is not "1v1":
+            return false
+    if {bridge::queue::%{_arena}%::*} contains {_p}:
+        return true
+    return false
+
+function bridge_queueCount(arena: text, mode: text) :: integer:
+    set {_count} to 0
+    # A lista de jogadores conectados nao duplica UUIDs de registros antigos.
+    loop all players:
+        if bridge_queueWaiting(loop-player, {_arena}, {_mode}) is true:
+            add 1 to {_count}
+    return {_count}
+
+function bridge_queueNotice(arena: text, mode: text, message: text):
+    loop all players:
+        if bridge_queueWaiting(loop-player, {_arena}, {_mode}) is true:
+            send "%{bridge::config::prefix}% %{_message}%" to loop-player
+
+function bridge_queueJoined(p: player, arena: text, mode: text):
+    if bridge_queueWaiting({_p}, {_arena}, {_mode}) is not true:
+        stop
+    set {_count} to bridge_queueCount({_arena}, {_mode})
+    set {_capacity} to 2
+    if {_mode} is "2v2":
+        set {_capacity} to 4
+    bridge_queueNotice({_arena}, {_mode}, "&f%name of {_p}% &aentrou na fila &8— &f%{_count}%/%{_capacity}% &7(%{_arena}% | %{_mode}%).")
+    send "&7Aguardando jogadores. Use &f/l &7para sair." to {_p}
+
+function bridge_queueDepart(p: player, reason: text):
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is not "QUEUE":
+        stop
+    set {_arena} to {bridge::player::%{_u}%::queue_arena}
+    set {_mode} to "1v1"
+    if {bridge::player::%{_u}%::queue_mode} is "2v2":
+        set {_mode} to "2v2"
+    set {_valid} to false
+    # Nao exigir isOnline no evento quit: validar o registro que esta saindo.
+    if {_arena} is set:
+        if {_mode} is "2v2":
+            set {_ticket} to {bridge::duos_queue::%{_arena}%::tickets::%{_u}%}
+            if {_ticket} is set:
+                if {bridge::player::%{_u}%::queue_ticket} is {_ticket}:
+                    if {bridge::duos_queue::%{_arena}%::members::*} contains {_u}:
+                        set {_valid} to true
+            bridge_duosForget({_arena}, {_u})
+        else:
+            if {bridge::player::%{_u}%::queue_mode} is not set:
+                if {bridge::queue::%{_arena}%::*} contains {_p}:
+                    set {_valid} to true
+            else if {bridge::player::%{_u}%::queue_mode} is "1v1":
+                if {bridge::queue::%{_arena}%::*} contains {_p}:
+                    set {_valid} to true
+        remove {_p} from {bridge::queue::%{_arena}%::*}
+    # Mantem a limpeza que /l e quit ja faziam, sem tocar no vinculo de retorno.
+    delete {bridge::player::%{_u}%::*}
+    if {_valid} is not true:
+        stop
+    set {_count} to bridge_queueCount({_arena}, {_mode})
+    set {_capacity} to 2
+    if {_mode} is "2v2":
+        set {_capacity} to 4
+    bridge_queueNotice({_arena}, {_mode}, "&f%name of {_p}% &esaiu da fila (%{_reason}%) &8— &f%{_count}%/%{_capacity}% &7(%{_arena}% | %{_mode}%).")
 
 function bridge_findFreeInstance(arena: text) :: text:
     loop {bridge::arena::%{_arena}%::instances::*}:

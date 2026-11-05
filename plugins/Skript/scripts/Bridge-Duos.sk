@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T174330Z-E91BE03E
+# Bridge-Delivery-ID: TB-20261105T192938Z-28822372
 # Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
+# Bridge-Base-Commit: 73f18d7a96c195962c46dc57ad1cdd966e5bd2f8
 # THE BRIDGE - 2v2 DE SOLOS / PREPARAÇÃO DE SESSÃO POR LISTAS
 # Não integra parties; /jogar continua no caminho 1v1 do Core.
 # /l e quit invalidam a entrada pelo estado/ticket; não reutilizar espera antiga.
@@ -239,8 +239,7 @@ command /jogar2v2 [<text>]:
         set {bridge::player::%{_u}%::queue_ticket} to {_ticket}
         set {bridge::duos_queue::%{_arena}%::tickets::%{_u}%} to {_ticket}
         add {_u} to {bridge::duos_queue::%{_arena}%::members::*}
-        set {_n} to size of {bridge::duos_queue::%{_arena}%::members::*}
-        send "%{bridge::config::prefix}% &aFila 2v2 de solos: &f%{_arena}% &8| &e%{_n}%/4 &7(/l para sair)." to player
+        bridge_queueJoined(player, {_arena}, "2v2")
         if {bridge::return::%{_u}%::instance} is set:
             send "&7Entrar na fila não encerra o retorno anterior; começar outra partida encerra." to player
         bridge_duosTryStart({_arena})
