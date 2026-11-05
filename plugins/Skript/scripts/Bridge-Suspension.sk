@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T231354Z-2450712B
-# Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: afb5221010e1ed825e24f2ff827c4e9d17eda4f8
+# Bridge-Delivery-ID: TB-20261105T233721Z-0C7900DC
+# Bridge-Previous-Delivery: TB-20261105T231354Z-2450712B
+# Bridge-Base-Commit: 3ccf37e34766fb5597928fc16cb3517d272630bc
 # ================================================================
 # THE BRIDGE - SUSPENSÕES / AUSÊNCIA, PAUSA E RETOMADA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -343,7 +343,20 @@ command /despausar:
             send "%{bridge::config::prefix}% &eSeu voto já foi registrado." to player
             stop
         set {bridge::instance::%{_inst}%::pause_resume_votes::%{_u}%} to true
-        bridge_chatInstance({_inst}, "&f%player% &avotou para retomar. É necessária mais da metade dos presentes do time %{_req}%.")
+        # Feedback antes da checagem de conclusao; somente o time solicitante.
+        set {_resumeYes} to 0
+        set {_resumeTotal} to 0
+        loop {bridge::instance::%{_inst}%::team::%{_req}%::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                add 1 to {_resumeTotal}
+                set {_resumeUUID} to loop-value's uuid
+                if {bridge::instance::%{_inst}%::pause_resume_votes::%{_resumeUUID}%} is true:
+                    add 1 to {_resumeYes}
+        set {_resumeNeed} to floor({_resumeTotal} / 2) + 1
+        set {_voteName} to bridge_getFormattedPlayerName(player)
+        loop {bridge::instance::%{_inst}%::team::%{_req}%::players::*}:
+            if bridge_isPresent(loop-value, {_inst}) is true:
+                send "%{bridge::config::prefix}% %{_voteName}% &7votou &aSIM &8| &7RETOMADA DA PAUSA &8| &a%{_resumeYes}% SIM &7/ %{_resumeTotal}% presentes do time &8| &7mínimo %{_resumeNeed}%." to loop-value
         bridge_checkPauseResumeVotes({_inst})
 
 function bridge_checkDisconnectState(inst: text, team: integer, dcName: text):
