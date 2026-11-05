@@ -42,87 +42,26 @@ stackable-buckets:
   lava: false
   water: false
   milk: false
-commands:
-  silent-commandblock-console: true
-  tab-complete: 0
-  spam-exclusions:
-  - /skill
-  replace-commands:
-  - setblock
-  - summon
-  - testforblock
-  - tellraw
-  log: true
-timings:
-  enabled: false
-  verbose: false
-  server-name-privacy: false
-  hidden-config-entries:
-  - database
-  - settings.bungeecord-addresses
-  history-interval: 300
-  history-length: 3600
-messages:
-  whitelist: You are not whitelisted.
-  unknown-command: Unknown command.
-  server-full: The server is full.
-  outdated-client: Outdated client! Please use {0}
-  outdated-server: Outdated server! I'm still on {0}
-  restart: Server is restarting
-stats:
-  disable-saving: true
-  forced-stats:
-    achievement:
-      openInventory: 1
 world-settings:
   default:
     verbose: false
-    allow-block-location-tab-completion: true
-    cache-chunk-maps: true
-    use-async-lighting: true
-    remove-invalid-mob-spawner-tile-entities: true
+    fix-cannons: false
     falling-blocks-collide-with-signs: false
-    keep-spawn-loaded: false
-    container-update-tick-rate: 2
     disable-mood-sounds: true
+    remove-invalid-mob-spawner-tile-entities: true
+    keep-spawn-loaded: false
     game-mechanics:
       disable-end-credits: true
       boats-drop-boats: false
       disable-player-crits: false
       disable-chest-cat-detection: true
-    fix-cannons: false
-    load-chunks:
-      enderpearls: false
-      tnt-entities: false
-      falling-blocks: false
-    lava-flow-speed:
-      normal: 30
-      nether: 10
-    remove-unloaded:
-      enderpearls: true
-      tnt-entities: true
-      falling-blocks: true
-    fishing-time-range:
-      MinimumTicks: 100
-      MaximumTicks: 900
-    despawn-ranges:
-      soft: 28
-      hard: 96
-    fast-drain:
-      lava: true
-      water: true
-    squid-spawn-height:
-      minimum: 45.0
-      maximum: 63.0
-    player-exhaustion:
-      block-break: 0.02500000037252903
-      swimming: 0.014999999664723873
-    use-hopper-check: false
-    water-over-lava-flow-speed: 5
+    container-update-tick-rate: 2
     allow-undead-horse-leashing: false
     tnt-entity-height-nerf: 0
     disable-explosion-knockback: false
     all-chunks-are-slime-chunks: false
+    allow-block-location-tab-completion: true
+    water-over-lava-flow-speed: 5
     generator-settings:
       canyon: false
       caves: false
@@ -134,20 +73,49 @@ world-settings:
       temple: false
       village: false
       flat-bedrock: true
+    cache-chunk-maps: true
+    use-async-lighting: true
     disable-teleportation-suffocation-check: true
     disable-thunder: true
     tick-next-tick-list-cap: 5000
     tick-next-tick-list-cap-ignores-redstone: true
+    remove-unloaded:
+      enderpearls: true
+      tnt-entities: true
+      falling-blocks: true
+    fishing-time-range:
+      MinimumTicks: 100
+      MaximumTicks: 900
+    fast-drain:
+      lava: true
+      water: true
+    use-hopper-check: false
+    despawn-ranges:
+      soft: 28
+      hard: 96
+    load-chunks:
+      enderpearls: false
+      tnt-entities: false
+      falling-blocks: false
+    squid-spawn-height:
+      minimum: 45.0
+      maximum: 63.0
+    player-exhaustion:
+      block-break: 0.02500000037252903
+      swimming: 0.014999999664723873
+    lava-flow-speed:
+      normal: 30
+      nether: 10
     disable-ice-and-snow: true
     portal-search-radius: 64
     player-blocking-damage-multiplier: 0.5
+    nether-ceiling-void-damage: false
     optimize-explosions: true
+    falling-block-height-nerf: 0
     mob-spawner-tick-rate: 2
     max-growth-height:
       cactus: 3
       reeds: 3
-    falling-block-height-nerf: 0
-    nether-ceiling-void-damage: false
     tnt-explosion-volume: 4.0
     enable-zombie-pigmen-portal-spawns: true
     wither-spawn-sound-radius: 0
@@ -222,3 +190,35 @@ world-settings:
       entity: 50
     chunks-per-tick: 650
     clear-tick-list: false
+commands:
+  silent-commandblock-console: true
+  tab-complete: 0
+  spam-exclusions:
+  - /skill
+  replace-commands:
+  - setblock
+  - summon
+  - testforblock
+  - tellraw
+  log: true
+timings:
+  enabled: false
+  verbose: false
+  server-name-privacy: false
+  hidden-config-entries:
+  - database
+  - settings.bungeecord-addresses
+  history-interval: 300
+  history-length: 3600
+messages:
+  whitelist: You are not whitelisted.
+  unknown-command: Unknown command.
+  server-full: The server is full.
+  outdated-client: Outdated client! Please use {0}
+  outdated-server: Outdated server! I'm still on {0}
+  restart: Server is restarting
+stats:
+  disable-saving: true
+  forced-stats:
+    achievement:
+      openInventory: 1
