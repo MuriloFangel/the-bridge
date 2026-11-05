@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T191142Z-5C47F468
-# Bridge-Corrects-Delivery: TB-20261105T180426Z-866DDFEC
-# Bridge-Base-Commit: c2df4a47c8401b7441d5c883c0d85904c9c0bdcb
+# Bridge-Delivery-ID: TB-20261105T191846Z-C6466914
+# Bridge-Corrects-Delivery: TB-20261105T191142Z-5C47F468
+# Bridge-Base-Commit: a7f72ee21a371c1a030634fa078a2e18ecb361ea
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -265,6 +265,19 @@ function bridge_sidebarRender(p: player, obj: object):
         if {_maxGols} is not set:
             set {_maxGols} to 5
 
+        # Normalizacao apenas das copias locais de exibicao.
+        set {_s1} to "%{_s1}%" parsed as number
+        set {_s2} to "%{_s2}%" parsed as number
+        set {_maxGols} to "%{_maxGols}%" parsed as number
+        if {_s1} is not set:
+            set {_s1} to 0
+        if {_s2} is not set:
+            set {_s2} to 0
+        if {_maxGols} is not set:
+            set {_maxGols} to 5
+        set {_s1} to floor({_s1})
+        set {_s2} to floor({_s2})
+        set {_maxGols} to floor({_maxGols})
         set {_bar1} to bridge_getGoalBar({_s1}, {_maxGols}, {_tCode1})
         set {_bar2} to bridge_getGoalBar({_s2}, {_maxGols}, {_tCode2})
         set {_bar1} to "%{_bar1}%&r"
@@ -394,7 +407,7 @@ function bridge_sidebarProbe(p: player, sb: object, wanted: object):
     set {_sid} to {bridge::instance::%{_inst}%::match_id}
     if {_sid} is not set:
         stop
-    set {_key} to "%{_inst}%/%{_sid}%"
+    set {_key} to "%{_inst}%/%{_sid}%/numeric-v2"
     if {-bridge::sidebar_probe::%{_u}%::key} is not {_key}:
         set {-bridge::sidebar_probe::%{_u}%::key} to {_key}
         set {-bridge::sidebar_probe::%{_u}%::count} to 0
@@ -405,6 +418,16 @@ function bridge_sidebarProbe(p: player, sb: object, wanted: object):
     set {_max} to {bridge::arena::%{_arena}%::gols}
     set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
     set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
+    set {_maxType} to "unset"
+    set {_s1Type} to "unset"
+    set {_s2Type} to "unset"
+    if {_max} is set:
+        set {_maxType} to {_max}.getClass().getName()
+    if {_s1} is set:
+        set {_s1Type} to {_s1}.getClass().getName()
+    if {_s2} is set:
+        set {_s2Type} to {_s2}.getClass().getName()
+    send "[BridgeSidebarProbe] originalTypes max=%{_maxType}% s1=%{_s1Type}% s2=%{_s2Type}%" to console
     set {_test} to bridge_getGoalBar(0, 5, "&9")
     set {_testShown} to {_test}.replace("§", "~")
     set {_length} to length of {_test}
