@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T174330Z-E91BE03E
-# Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: 47012cfd5169dcbf1e06bc6a468eaca2920e9e49
+# Bridge-Delivery-ID: TB-20261105T175745Z-2CD8DB5A
+# Bridge-Corrects-Delivery: TB-20261105T174330Z-E91BE03E
+# Bridge-Base-Commit: ffd1f475bddda7379ade2699fe22b7b16a2ddeab
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -132,15 +132,15 @@ function bridge_updateScoreboard(p: player):
     bridge_sidebarApply({_p}, {_sb}, {_obj}, {_actual}, {_wanted})
 
 function bridge_setScoreLine(obj: object, text: text, score: integer):
+    # Restaura a escrita direta das versoes 19b65ebd e 7629c073.
+    # O mapa continua registrando as linhas desejadas para remocao incremental.
     set {_line} to colored {_text}
+    set {_scoreObj} to {_obj}.getScore({_line})
+    {_scoreObj}.setScore({_score})
     if {-bridge::sidebar_pending} is set:
         set {_pending} to {-bridge::sidebar_pending}.get({_obj})
         if {_pending} is set:
             {_pending}.put({_line}, {_score})
-            stop
-    # Compatibilidade com chamadas diretas da função fora da renderização.
-    set {_scoreObj} to {_obj}.getScore({_line})
-    {_scoreObj}.setScore({_score})
 
 # Pedido PAUSA é apenas uma votação: mostrar o tempo real, que continua correndo.
 function bridge_sidebarTime(inst: text) :: text:
