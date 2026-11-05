@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T180426Z-866DDFEC
-# Bridge-Corrects-Delivery: TB-20261105T175745Z-2CD8DB5A
-# Bridge-Base-Commit: 1b098616e4415e2bb5495500174b4dc3c0eb4cc4
+# Bridge-Delivery-ID: TB-20261105T191142Z-5C47F468
+# Bridge-Corrects-Delivery: TB-20261105T180426Z-866DDFEC
+# Bridge-Base-Commit: c2df4a47c8401b7441d5c883c0d85904c9c0bdcb
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -265,8 +265,10 @@ function bridge_sidebarRender(p: player, obj: object):
         if {_maxGols} is not set:
             set {_maxGols} to 5
 
-        set {_bar1} to "%bridge_getGoalBar({_s1}, {_maxGols}, {_tCode1})%&r"
-        set {_bar2} to "%bridge_getGoalBar({_s2}, {_maxGols}, {_tCode2})%&f"
+        set {_bar1} to bridge_getGoalBar({_s1}, {_maxGols}, {_tCode1})
+        set {_bar2} to bridge_getGoalBar({_s2}, {_maxGols}, {_tCode2})
+        set {_bar1} to "%{_bar1}%&r"
+        set {_bar2} to "%{_bar2}%&f"
 
         set {_timeStr} to bridge_sidebarTime({_inst})
 
