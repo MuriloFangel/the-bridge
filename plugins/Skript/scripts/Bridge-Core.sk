@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T192938Z-28822372
-# Bridge-Corrects-Delivery: TB-20261105T174155Z-D97038FC
-# Bridge-Base-Commit: 73f18d7a96c195962c46dc57ad1cdd966e5bd2f8
+# Bridge-Delivery-ID: TB-20261105T194105Z-6B38EE94
+# Bridge-Previous-Delivery: TB-20261105T192938Z-28822372
+# Bridge-Base-Commit: a973b5cf3dcea366cab370384b02610fed1d24cd
 # ================================================================
 # THE BRIDGE - CORE / FILA E COORDENAÇÃO DO CICLO DA PARTIDA
 # Fechamento 1 parcial: correções de combate, vida e resultado; ver manifesto.
@@ -21,6 +21,8 @@ import:
     org.bukkit.inventory.ItemStack
     org.bukkit.enchantments.Enchantment
     org.bukkit.util.Vector
+    java.util.UUID as BridgeQueueUUID
+    com.google.gson.JsonObject as BridgeQueueJson
 
 function bridge_chatInstance(inst: text, msg: text):
     loop {bridge::instance::%{_inst}%::team::1::players::*}:
@@ -219,6 +221,166 @@ function bridge_queueJoined(p: player, arena: text, mode: text):
         set {_capacity} to 4
     bridge_queueNotice({_arena}, {_mode}, "&f%name of {_p}% &aentrou na fila &8— &f%{_count}%/%{_capacity}% &7(%{_arena}% | %{_mode}%).")
     send "&7Aguardando jogadores. Use &f/l &7para sair." to {_p}
+    bridge_queueAdOffer({_p}, {_arena}, {_mode})
+
+# Divulgacao de fila; nao implementa canais de chat nem entrada coletiva.
+function bridge_queueAdButton(p: player, message: text, commandText: text):
+    if {_p} is not online:
+        stop
+    # Gson escapa arena/texto; o clique transporta apenas acao e UUID.
+    set {_json} to new BridgeQueueJson()
+    set {_shown} to colored {_message}
+    {_json}.addProperty("text", {_shown})
+    set {_click} to new BridgeQueueJson()
+    {_click}.addProperty("action", "run_command")
+    {_click}.addProperty("value", {_commandText})
+    {_json}.add("clickEvent", {_click})
+    set {_payload} to {_json}.toString()
+    execute console command "tellraw %name of {_p}% %{_payload}%"
+
+function bridge_queueAdOffer(p: player, arena: text, mode: text):
+    if bridge_queueWaiting({_p}, {_arena}, {_mode}) is not true:
+        stop
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::queue_ad_entry} is not set:
+        set {bridge::player::%{_u}%::queue_ad_entry} to BridgeQueueUUID.randomUUID().toString()
+    bridge_queueAdButton({_p}, "&e[DIVULGAR FILA NO CHAT GERAL]", "/bridgefila divulgar")
+    send "&7Divulgacao: intervalo de 30s compartilhado por esta fila." to {_p}
+
+function bridge_queueAdPublish(p: player):
+    set {_u} to {_p}'s uuid
+    set {_arena} to {bridge::player::%{_u}%::queue_arena}
+    set {_mode} to "1v1"
+    if {bridge::player::%{_u}%::queue_mode} is "2v2":
+        set {_mode} to "2v2"
+    if {_arena} is not set:
+        send "%{bridge::config::erro}% &cEntre em uma fila antes de divulgar." to {_p}
+        stop
+    if bridge_queueWaiting({_p}, {_arena}, {_mode}) is not true:
+        send "%{bridge::config::erro}% &cVoce nao esta mais nessa fila de espera." to {_p}
+        stop
+    if {bridge::arenas::*} does not contain {_arena}:
+        send "%{bridge::config::erro}% &cArena indisponivel." to {_p}
+        stop
+    if {-bridge::setup::%{_arena}%::active} is true:
+        send "%{bridge::config::erro}% &cAguarde o cadastro da arena terminar." to {_p}
+        stop
+    set {_count} to bridge_queueCount({_arena}, {_mode})
+    set {_capacity} to 2
+    if {_mode} is "2v2":
+        set {_capacity} to 4
+    if {_count} >= {_capacity}:
+        send "%{bridge::config::prefix}% &eA fila ja esta completa. Aguarde o inicio." to {_p}
+        stop
+    set {_now} to unix timestamp of now
+    set {_deadline} to {bridge::queue_ad::%{_arena}%::%{_mode}%::next_at}
+    if {_deadline} is set:
+        if {_deadline} > {_now}:
+            set {_left} to ceil({_deadline} - {_now})
+            send "%{bridge::config::prefix}% &eEsta fila podera ser divulgada novamente em %{_left}%s." to {_p}
+            stop
+    if {bridge::player::%{_u}%::queue_ad_entry} is not set:
+        set {bridge::player::%{_u}%::queue_ad_entry} to BridgeQueueUUID.randomUUID().toString()
+    set {_token} to BridgeQueueUUID.randomUUID().toString()
+    set {bridge::queue_ad::%{_arena}%::%{_mode}%::token} to {_token}
+    set {bridge::queue_ad::%{_arena}%::%{_mode}%::host} to "%{_u}%"
+    set {bridge::queue_ad::%{_arena}%::%{_mode}%::host_entry} to {bridge::player::%{_u}%::queue_ad_entry}
+    # Nao limpar este prazo na saida do anunciante: cooldown e da fila.
+    set {bridge::queue_ad::%{_arena}%::%{_mode}%::next_at} to {_now} + 30
+    set {_message} to "&e[FILA] &a%name of {_p}% &7esta esperando em &f%{_arena}% &8| &e%{_mode}% &8| &f%{_count}%/%{_capacity}% &a[ENTRAR]"
+    loop all players:
+        bridge_queueAdButton(loop-player, {_message}, "/bridgefila entrar %{_token}%")
+
+function bridge_queueAdJoin(p: player, adToken: text):
+    set {_u} to {_p}'s uuid
+    if {bridge::player::%{_u}%::state} is set:
+        send "%{bridge::config::erro}% &cVoce ja esta em fila ou partida. Use /l antes de trocar." to {_p}
+        stop
+    if {bridge::config::lobby} is not set:
+        send "%{bridge::config::erro}% &cLobby nao configurado." to {_p}
+        stop
+    # Resolve apenas tokens atuais de arenas cadastradas; nenhum ID vira comando.
+    loop {bridge::arenas::*}:
+        set {_candidateArena} to loop-value
+        if {bridge::queue_ad::%{_candidateArena}%::1v1::token} is {_adToken}:
+            set {_arena} to {_candidateArena}
+            set {_mode} to "1v1"
+            exit loop
+        if {bridge::queue_ad::%{_candidateArena}%::2v2::token} is {_adToken}:
+            set {_arena} to {_candidateArena}
+            set {_mode} to "2v2"
+            exit loop
+    if {_arena} is not set:
+        send "%{bridge::config::erro}% &cDivulgacao antiga ou indisponivel." to {_p}
+        stop
+    if {-bridge::setup::%{_arena}%::active} is true:
+        send "%{bridge::config::erro}% &cAguarde o cadastro da arena terminar." to {_p}
+        stop
+    set {_hostKey} to {bridge::queue_ad::%{_arena}%::%{_mode}%::host}
+    set {_hostId} to try BridgeQueueUUID.fromString({_hostKey})
+    if {_hostId} is not set:
+        send "%{bridge::config::erro}% &cDivulgacao invalida." to {_p}
+        stop
+    set {_host} to Bukkit.getPlayer({_hostId})
+    if {_host} is not set:
+        send "%{bridge::config::erro}% &cO anunciante nao esta mais esperando nessa fila." to {_p}
+        stop
+    if bridge_queueWaiting({_host}, {_arena}, {_mode}) is not true:
+        send "%{bridge::config::erro}% &cEssa divulgacao nao corresponde mais a uma espera valida." to {_p}
+        stop
+    set {_entry} to {bridge::player::%{_hostKey}%::queue_ad_entry}
+    if {_entry} is not set:
+        send "%{bridge::config::erro}% &cDivulgacao encerrada." to {_p}
+        stop
+    if {bridge::queue_ad::%{_arena}%::%{_mode}%::host_entry} is not {_entry}:
+        send "%{bridge::config::erro}% &cO anunciante saiu e entrou novamente. Use uma divulgacao atual." to {_p}
+        stop
+    set {_count} to bridge_queueCount({_arena}, {_mode})
+    set {_capacity} to 2
+    if {_mode} is "2v2":
+        set {_capacity} to 4
+    if {_count} <= 0:
+        send "%{bridge::config::erro}% &cEssa fila de espera foi encerrada." to {_p}
+        stop
+    if {_count} >= {_capacity}:
+        send "%{bridge::config::erro}% &cA fila ja esta completa. Use uma divulgacao atual." to {_p}
+        stop
+    # Sem waits entre validacoes e delegacao; comandos normais revalidam entrada.
+    set {_command} to "jogar %{_arena}%"
+    if {_mode} is "2v2":
+        set {_command} to "jogar2v2 %{_arena}%"
+    set {_accepted} to {_p}.performCommand({_command})
+
+command /bridgefila [<text>] [<text>]:
+    executable by: players
+    trigger:
+        if arg-1 is "divulgar":
+            bridge_queueAdPublish(player)
+            stop
+        if arg-1 is "entrar":
+            if arg-2 is not set:
+                send "%{bridge::config::erro}% &cUse o botao de uma divulgacao atual." to player
+                stop
+            bridge_queueAdJoin(player, arg-2)
+            stop
+        send "%{bridge::config::prefix}% &e/bridgefila divulgar &7- divulga sua fila; intervalo compartilhado de 30s." to player
+
+on load:
+    set {bridge::tab::custom::bridgefila::1::*} to "divulgar"
+    # Oferece o botao tambem a quem ja aguardava antes deste carregamento.
+    wait 2 ticks
+    loop all players:
+        set {_u} to loop-player's uuid
+        if {bridge::player::%{_u}%::state} is "QUEUE":
+            set {_arena} to {bridge::player::%{_u}%::queue_arena}
+            if {_arena} is set:
+                set {_mode} to "1v1"
+                if {bridge::player::%{_u}%::queue_mode} is "2v2":
+                    set {_mode} to "2v2"
+                bridge_queueAdOffer(loop-player, {_arena}, {_mode})
+
+on unload:
+    delete {bridge::tab::custom::bridgefila::*}
 
 function bridge_queueDepart(p: player, reason: text):
     set {_u} to {_p}'s uuid
