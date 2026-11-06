@@ -8,33 +8,6 @@
 # IRC: #paperspigot @ irc.spi.gt ( http://irc.spi.gt/iris/?channels=PaperSpigot )
 
 config-version: 9
-data-value-allowed-items: []
-warnWhenSettingExcessiveVelocity: false
-settings:
-  baby-zombie-movement-speed: 0.5
-  limit-player-interactions: true
-  debug: false
-  moved-too-quickly-threshold: 100.0
-  moved-wrongly-threshold: 0.0625
-  filter-creative-items: true
-  save-user-cache-on-stop-only: true
-  user-cache-size: 500
-  timeout-time: 60
-  restart-on-crash: true
-  restart-script: ./start.sh
-  netty-threads: 8
-  bungeecord: false
-  late-bind: false
-  player-shuffle: 0
-  int-cache-limit: 1024
-  sample-count: 12
-  attribute:
-    maxHealth:
-      max: 2048.0
-    movementSpeed:
-      max: 2048.0
-    attackDamage:
-      max: 2048.0
 effect-modifiers:
   strength: 1.3
   weakness: -0.5
@@ -42,6 +15,65 @@ stackable-buckets:
   lava: false
   water: false
   milk: false
+settings:
+  limit-player-interactions: true
+  baby-zombie-movement-speed: 0.5
+  debug: false
+  save-user-cache-on-stop-only: true
+  moved-too-quickly-threshold: 100.0
+  filter-creative-items: true
+  moved-wrongly-threshold: 0.0625
+  sample-count: 12
+  user-cache-size: 500
+  late-bind: false
+  int-cache-limit: 1024
+  player-shuffle: 0
+  bungeecord: false
+  timeout-time: 60
+  restart-on-crash: true
+  restart-script: ./start.sh
+  netty-threads: 8
+  attribute:
+    maxHealth:
+      max: 2048.0
+    movementSpeed:
+      max: 2048.0
+    attackDamage:
+      max: 2048.0
+warnWhenSettingExcessiveVelocity: false
+data-value-allowed-items: []
+timings:
+  enabled: false
+  verbose: false
+  server-name-privacy: false
+  hidden-config-entries:
+  - database
+  - settings.bungeecord-addresses
+  history-interval: 300
+  history-length: 3600
+commands:
+  tab-complete: 0
+  silent-commandblock-console: true
+  spam-exclusions:
+  - /skill
+  replace-commands:
+  - setblock
+  - summon
+  - testforblock
+  - tellraw
+  log: true
+messages:
+  whitelist: You are not whitelisted.
+  unknown-command: Unknown command.
+  server-full: The server is full.
+  outdated-client: Outdated client! Please use {0}
+  outdated-server: Outdated server! I'm still on {0}
+  restart: Server is restarting
+stats:
+  disable-saving: true
+  forced-stats:
+    achievement:
+      openInventory: 1
 world-settings:
   default:
     verbose: false
@@ -190,35 +222,3 @@ world-settings:
       entity: 50
     chunks-per-tick: 650
     clear-tick-list: false
-commands:
-  silent-commandblock-console: true
-  tab-complete: 0
-  spam-exclusions:
-  - /skill
-  replace-commands:
-  - setblock
-  - summon
-  - testforblock
-  - tellraw
-  log: true
-timings:
-  enabled: false
-  verbose: false
-  server-name-privacy: false
-  hidden-config-entries:
-  - database
-  - settings.bungeecord-addresses
-  history-interval: 300
-  history-length: 3600
-messages:
-  whitelist: You are not whitelisted.
-  unknown-command: Unknown command.
-  server-full: The server is full.
-  outdated-client: Outdated client! Please use {0}
-  outdated-server: Outdated server! I'm still on {0}
-  restart: Server is restarting
-stats:
-  disable-saving: true
-  forced-stats:
-    achievement:
-      openInventory: 1
