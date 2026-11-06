@@ -1,6 +1,6 @@
-# Bridge-Delivery-ID: TB-20261105T191846Z-C6466914
-# Bridge-Corrects-Delivery: TB-20261105T191142Z-5C47F468
-# Bridge-Base-Commit: a7f72ee21a371c1a030634fa078a2e18ecb361ea
+# Bridge-Delivery-ID: TB-20261106T001236Z-5515A9D6
+# Bridge-Previous-Delivery: TB-20261105T191846Z-C6466914
+# Bridge-Base-Commit: 5e1417ea49cb213c38f04005b915b517bc496fff
 # Fechamento 3.1: atualização incremental da scoreboard; layout preservado.
 # ================================================================
 # THE BRIDGE - SCOREBOARD DINÂMICA LOBBY & INGAME (ETAPA 2.2 - FIX)
@@ -130,7 +130,6 @@ function bridge_updateScoreboard(p: player):
     bridge_sidebarRender({_p}, {_obj})
     {-bridge::sidebar_pending}.remove({_obj})
     bridge_sidebarApply({_p}, {_sb}, {_obj}, {_actual}, {_wanted})
-    bridge_sidebarProbe({_p}, {_sb}, {_wanted})
 
 function bridge_setScoreLine(obj: object, text: text, score: integer):
     set {_line} to colored {_text}
@@ -398,63 +397,3 @@ on quit:
     set {_u} to player's uuid
     delete {-bridge::sidebar::%{_u}%::*}
 
-# Diagnostico limitado: leitura do objetivo real, sem alterar scores ou gameplay.
-function bridge_sidebarProbe(p: player, sb: object, wanted: object):
-    set {_u} to {_p}'s uuid
-    if {bridge::player::%{_u}%::state} is not "INGAME":
-        stop
-    set {_inst} to {bridge::player::%{_u}%::instance}
-    set {_sid} to {bridge::instance::%{_inst}%::match_id}
-    if {_sid} is not set:
-        stop
-    set {_key} to "%{_inst}%/%{_sid}%/numeric-v2"
-    if {-bridge::sidebar_probe::%{_u}%::key} is not {_key}:
-        set {-bridge::sidebar_probe::%{_u}%::key} to {_key}
-        set {-bridge::sidebar_probe::%{_u}%::count} to 0
-    if {-bridge::sidebar_probe::%{_u}%::count} >= 2:
-        stop
-    add 1 to {-bridge::sidebar_probe::%{_u}%::count}
-    set {_arena} to {bridge::instance::%{_inst}%::arena}
-    set {_max} to {bridge::arena::%{_arena}%::gols}
-    set {_s1} to {bridge::instance::%{_inst}%::team::1::score}
-    set {_s2} to {bridge::instance::%{_inst}%::team::2::score}
-    set {_maxType} to "unset"
-    set {_s1Type} to "unset"
-    set {_s2Type} to "unset"
-    if {_max} is set:
-        set {_maxType} to {_max}.getClass().getName()
-    if {_s1} is set:
-        set {_s1Type} to {_s1}.getClass().getName()
-    if {_s2} is set:
-        set {_s2Type} to {_s2}.getClass().getName()
-    send "[BridgeSidebarProbe] originalTypes max=%{_maxType}% s1=%{_s1Type}% s2=%{_s2Type}%" to console
-    set {_test} to bridge_getGoalBar(0, 5, "&9")
-    set {_testShown} to {_test}.replace("§", "~")
-    set {_length} to length of {_test}
-    send "[BridgeSidebarProbe] player=%name of {_p}% session=%{_key}% max=%{_max}% scores=%{_s1}%/%{_s2}% testLen=%{_length}% test=[%{_testShown}%]" to console
-    set {_obj} to {_sb}.getObjective("bridge")
-    if {_obj} is not set:
-        send "[BridgeSidebarProbe] objective=ABSENT" to console
-        stop
-    set {_iterator} to {_wanted}.entrySet().iterator()
-    while {_iterator}.hasNext() is true:
-        set {_item} to {_iterator}.next()
-        set {_position} to {_item}.getValue()
-        if {_position} is 6 or 7:
-            set {_entry} to {_item}.getKey()
-            set {_shown} to {_entry}.replace("§", "~")
-            set {_plain} to uncolored {_entry}
-            set {_plainLength} to length of {_plain}
-            set {_scoreObj} to {_obj}.getScore({_entry})
-            set {_registered} to {_scoreObj}.isScoreSet()
-            set {_actual} to {_scoreObj}.getScore()
-            send "[BridgeSidebarProbe] wanted=%{_position}% text=[%{_shown}%] plainLen=%{_plainLength}% registered=%{_registered}% actual=%{_actual}%" to console
-    set {_entries} to {_sb}.getEntries().iterator()
-    while {_entries}.hasNext() is true:
-        set {_entry} to {_entries}.next()
-        set {_scoreObj} to {_obj}.getScore({_entry})
-        if {_scoreObj}.isScoreSet() is true:
-            set {_position} to {_scoreObj}.getScore()
-            if {_position} is 6 or 7:
-                set {_shown} to {_entry}.replace("§", "~")
-                send "[BridgeSidebarProbe] real=%{_position}% text=[%{_shown}%]" to console
