@@ -1,0 +1,10 @@
+{
+  "windows_compiled_here": false,
+  "windows_executed_here": false,
+  "remote_files_changed": false,
+  "backend_changes": false,
+  "source_integrity_manifest": true,
+  "native_windows_launcher_source": true,
+  "uses_webview": false,
+  "still_uses_background_powershell": true
+}

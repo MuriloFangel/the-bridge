@@ -1,0 +1,82 @@
+THE BRIDGE DESKTOP — CAMADA VISUAL WINDOWS, SEM WEBVIEW
+
+APLICACAO
+1. Extraia TODOS os arquivos do ZIP para uma pasta.
+2. Feche as quatro interfaces antigas pelo X, aguardando operacoes em curso.
+   Nao use Encerrar ambiente e nao pare Java/bots para instalar.
+3. De duplo clique em Instalar-TheBridge-Desktop.cmd.
+4. Use o novo atalho The Bridge na Area de Trabalho ou os atalhos da pasta
+   The Bridge no menu Iniciar. O instalador abre Ambiente ao concluir.
+Nao execute o CMD de dentro do ZIP. Use a conta que administra as interfaces.
+
+O QUE ESTA SENDO ENTREGUE
+Um lancador Windows WinExe compilado localmente, icone proprio e quatro
+janelas WinForms reorganizadas. Nao e uma reescrita do backend, nem um novo
+cliente Rust. Os scripts originais sao lidos/validados localmente e recebem
+uma camada visual em memoria. Nenhum script original e sobrescrito.
+A interface ainda usa PowerShell 7/.NET em processos de fundo; nao promete
+eliminar esses processos ou um consumo de RAM medido. Nao usa browser,
+WebView, HTML, Electron, Tauri ou downloads de dependencias.
+O lancador executa os hosts com CreateNoWindow, sem uma janela de terminal
+junto. A janela grafica fica na barra de tarefas com o icone do programa.
+Nao implementa bandeja de notificacao nem fixacao automatica na taskbar.
+Os atalhos novos apontam para o lancador, nao para CMD/PowerShell.
+Atalhos antigos e start.bat foram preservados; se os usar, a abertura antiga
+pode continuar exibindo um shell. Use os novos atalhos.
+
+ORGANIZACAO
+Ambiente: grupos Ambiente completo, Servidor Java e Controlador/ferramentas.
+Bots: grupos Controlador/conexoes, Bot selecionado e Mensagem/Comando.
+Bots ganha acesso direto a Nomes persistentes; Enter no campo de mensagem
+envia ao ID selecionado. O prompt inferior segue sendo do controlador.
+Console: campo de comando maior e envio identificado como Enviar ao servidor.
+Todos preservam controles e regras da ponte atual, com botoes redimensionaveis.
+Nomes realistas, persistencia, conexao manual e recuperacao de Java nao mudam.
+Abrir Ambiente continua iniciando somente o controlador sem conectar bots.
+Fechar uma interface nao e comando para encerrar os componentes.
+
+TECLADO E MOUSE
+Todos os campos textuais editaveis de uma linha (nao os seletores numericos)
+ganham historico com setas para cima/baixo e preservam o rascunho ao voltar
+ao fim. Enter mantem o envio original. Tab e atalhos nativos permanecem.
+Historico novo gravado por campo e janela em LocalAppData\TheBridgeDesktop\history.
+Registra texto ao Enter ou ao sair do campo; pode incluir tentativas nao enviadas.
+Base64 e somente formato de armazenamento, nao criptografia. Nao digite
+segredos que nao deseja manter no historico. Nao migra automaticamente a
+memoria dos campos das janelas antigas; logs anteriores ficam preservados.
+Botoes direitos: copiar selecionado, selecionar tudo, copiar texto inteiro;
+campos editaveis tambem recortar, colar e desfazer. Ctrl+C/V/A continuam.
+Saida nao e reduzida por esta camada; o historico de transporte continua
+sendo carregado pela interface original. Memoria nao e infinita.
+
+INSTALACAO E ATALHOS
+Compila usando csc.exe do .NET Framework instalado, e o compilador do
+PowerShell 7 para o auxiliar WinForms. Nao baixa SDK nem muda politicas.
+Se compilador estiver ausente ou testes falharem, aborta antes dos atalhos.
+Instala releases separadas em LocalAppData\TheBridgeDesktopeleases.
+Menu Iniciar: Ambiente, Bots, Console e Nomes. Area de Trabalho: principal.
+Copia atalhos existentes que vai substituir para shortcut-backups na release.
+Somente atalhos Startup .lnk reconhecidos, apontando ao painel.ps1 deste
+projeto via PowerShell, sao atualizados para o novo lancador com --autostart.
+Mantem os 30 s existentes. Nao cria novo autorun se nao houver esse atalho.
+Nao muda tarefas agendadas, VBS ou entradas de startup nao reconhecidas;
+installation-result.json informa quais atalhos foram alterados.
+Sem rollback automatico de instalacao parcial de atalhos. Originais do
+projeto e releases antigas continuam disponiveis para retorno manual.
+O lancador evita duplicar cada janela iniciada por ele e tenta trazer a
+existente para frente. Nao adota/fecha instancias antigas abertas por CMD.
+
+TESTES E LIMITES
+Nao foi compilado ou executado Windows/PowerShell neste ambiente de entrega.
+Nao e build Windows previamente homologada: e pacote de fontes com build local.
+O instalador verifica hashes do pacote e das quatro interfaces, compila,
+executa testes de historico e layout em 900/1280/1920 para cada janela,
+sem ShowDialog nem envio de comandos. Nao substitui teste visual em DPI,
+multimonitor, Area de Trabalho remota ou benchmark de consumo.
+A aparencia final e o foco/agrupamento de taskbar precisam de conferencia
+real na sua sessao. A preferencia do Windows pode impedir roubar o foco.
+Se fontes das interfaces mudarem, o host recusa a versao diferente em vez
+de carregar silenciosamente uma combinacao nao verificada.
+Erros ficam nos logs privados LocalAppData\TheBridgeDesktop\logs.
+O instalador imprime a etapa e preserva o diagnostico. Nao repita cegamente.
+Nenhum comando de servidor, crash ou parada forcada e enviado pelos testes.

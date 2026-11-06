@@ -1,0 +1,18 @@
+{
+  "Environment": {
+    "file": "painel.ps1",
+    "sha256": "97f500f751572ce4468e4c84963da6b3415bc2655caffdd42a62a718ac94c61d"
+  },
+  "Bots": {
+    "file": "Bridge-Bots.ps1",
+    "sha256": "ebbe3ad251c8a9c44cf81f1e75af05e2746801b07fab05d0717509fdb77a1e0b"
+  },
+  "Console": {
+    "file": "Bridge-Console2.ps1",
+    "sha256": "22b00e72dc891d684aa62ded4fd2af5a842c47cfd4681a44cf9ee2ecae5570b5"
+  },
+  "Names": {
+    "file": "Bridge-Nomes.ps1",
+    "sha256": "1d9dd2f8f4e188f3e24f37243625399930d49838fe7fa68581d00364ffe36b99"
+  }
+}
