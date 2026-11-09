@@ -1,5 +1,5 @@
-<!-- Bridge-Delivery-ID: TB-20261102T061136Z-1D382738 -->
-<!-- Bridge-Base-Commit: e59f1c54454a5e3294bb83c83337f31866387aa3 -->
+<!-- Bridge-Delivery-ID: TB-20261109T141700Z-A157BD10 -->
+<!-- Bridge-Base-Commit: d42eff5140f8ed21565e15662fa4ac17c25f9760 -->
 # Gerente do projeto The Bridge — continuidade operacional
 
 ## 1. Papel deste chat
@@ -311,6 +311,12 @@ Descubra/descreva as ferramentas antes de chamar, conforme as regras do ambiente
 - Não encerre a tarefa do Agendador enquanto houver Java/bots/tarefas gerenciados sem planejar a parada normal; o Windows pode finalizar filhos.
 
 As confirmações exigidas pelas ferramentas são obrigações técnicas do ambiente, não preferências pessoais atribuídas ao administrador.
+
+### Ponte Google AI Studio (Watcher local + Tampermonkey)
+
+Implementada em 	ools/Bridge-AIStudio.ps1 (com cópia operacional em F:\srv\TheBridge-Remote-v2\Bridge-AIStudio.ps1, iniciador 3-AIStudio.cmd e atalho TheBridge-AIStudio-Watcher.lnk no Startup do Windows).
+- Monitora a área de transferência por blocos ###<<<BRIDGE-TRIGGER-V1>>>### ... ###<<<END-BRIDGE-TRIGGER>>>### e expõe http://127.0.0.1:18977/ para o Userscript do Tampermonkey colar automaticamente a resposta no campo de prompt do Google AI Studio (sem pressionar Enter).
+- Conecta-se nativamente ao MCP (F:\srv\TheBridge-Remote-v2\connection.json), ao Named Pipe dos consoles (Bridge-ConsoleClient.ps1) e publica registros imutáveis em origin/ai-deliveries (ntregas/ e documentacao/) mantendo as janelas de confirmação do administrador para escritas e comandos.
 
 ## 8. O que foi comprovado
 

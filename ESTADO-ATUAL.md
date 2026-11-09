@@ -38,3 +38,9 @@ APLICACAO LOCAL: administrador concluiu recuperacao manual e informou SALVOS_SEM
 
 PUBLICACAO DO CODIGO NO GIT: ainda nao demonstrada nesta verificacao; main consultada 0de976d1c8b90e9ffb179e034643a577a51c585c. CARREGAMENTO: nao executado por esta entrega. TESTES DE GAMEPLAY DOS PATCHES: pendentes. Modelos Python e correspondencia de hashes nao aprovam funcionamento.
 <!-- END BRIDGE DOC TB-20261103T235827Z-F4C71991 -->
+
+<!-- BEGIN BRIDGE DOC TB-20261109T141700Z-A157BD10 -->
+### Infraestrutura de continuidade — Ponte Google AI Studio (TB-20261109T141700Z-A157BD10)
+
+ENTREGA DE INFRAESTRUTURA: adicionados `tools/Bridge-AIStudio.ps1` e `3-AIStudio.cmd`, integrando o Google AI Studio (via Clipboard Watcher e endpoint local `127.0.0.1:18977` para auto-paste no Tampermonkey) ao MCP `TheBridge-Remote-v2`, ao pipe `Bridge-ConsoleClient.ps1` e a branch `ai-deliveries`. Atualizados `PROMPT-NOVO-CHAT.md` e `PROMPT-GERENTE.md`. Removida trava orfa `.git/bridge-docs/lock` de 08/11 (PID 3148 inexistente). Nao altera scripts `.sk` nem declara testes de gameplay.
+<!-- END BRIDGE DOC TB-20261109T141700Z-A157BD10 -->
