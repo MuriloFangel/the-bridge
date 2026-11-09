@@ -77,6 +77,10 @@ function RunTrigger($cmd){
  }elseif($cmd.action -eq 'MCP'){
   if([System.Windows.Forms.MessageBox]::Show("Executar MCP '$($cmd.tool)'?`nArgs: $($cmd.args|ConvertTo-Json -Compress)","The Bridge - MCP",'YesNo','Question') -ne 'Yes'){return $sb.AppendLine("STATUS: CANCELADO").ToString()}
   $ah=@{};if($cmd.args){foreach($p in $cmd.args.PSObject.Properties){$ah[$p.Name]=$p.Value}};[void]$sb.AppendLine(((CallMcp $cmd.tool $ah)|ConvertTo-Json -Depth 10))
+ }elseif($cmd.action -eq 'POWERSHELL'){
+  if([System.Windows.Forms.MessageBox]::Show("Executar Script PowerShell ($($cmd.description))?",'The Bridge - PowerShell','YesNo','Question') -ne 'Yes'){return $sb.AppendLine('STATUS: CANCELADO').ToString()}
+  $out = (Invoke-Expression $cmd.script | Out-String).Trim()
+  [void]$sb.AppendLine($out)
  }elseif($cmd.action -eq 'CONSOLE_PIPE'){
   if([System.Windows.Forms.MessageBox]::Show("Executar Console Pipe?`nPayload: $($cmd.payload|ConvertTo-Json -Compress)","The Bridge - Pipe",'YesNo','Question') -ne 'Yes'){return $sb.AppendLine("STATUS: CANCELADO").ToString()}
   $ph=@{};foreach($p in $cmd.payload.PSObject.Properties){$ph[$p.Name]=$p.Value};[void]$sb.AppendLine(((Invoke-LocalConsole $ph)|ConvertTo-Json -Depth 10))
